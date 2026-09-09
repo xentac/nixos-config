@@ -76,8 +76,7 @@
     cargo-audit
     cargo-binstall
     python3
-    uv
-    pipx
+    uv # `uv tool install foo` replaces pipx (pipx's tests fail on 26.05, so it is not cached)
     openjdk21
     R
 

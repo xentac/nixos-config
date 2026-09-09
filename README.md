@@ -340,7 +340,7 @@ What the survey found on Ubuntu and where it went.
 | AppImages (OpenAudible, koreader) | `appimage-run` | koreader is also in nixpkgs |
 | nvm + node 25, npm globals | `nodejs`, `pnpm`, `claude-code`, `gemini-cli`, `devcontainer`, `markdownlint-cli2` | |
 | cargo: jj, cargo-audit, cargo-binstall | `jujutsu`, `cargo-audit`, `cargo-binstall` | |
-| pipx: rofimoji, thunar-plugins | `rofimoji`, thunar plugins | |
+| pipx: rofimoji, thunar-plugins | `rofimoji`, thunar plugins | pipx itself is dropped; use `uv tool install` |
 | btrbk, restic, resticprofile, borgbackup | `backups.nix` + `apps.nix` | Restic repo config was root-only; fill in the TODO |
 | syncthing + syncthingtray | `apps.nix` | System service running as your user |
 | ollama | `services.ollama` (off) | Was inactive on Ubuntu |
