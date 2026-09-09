@@ -5,7 +5,7 @@
   users.users.xentac = {
     isNormalUser = true;
     description = "Jason Chu";
-    shell = pkgs.bash;
+    shell = pkgs.zsh;
     extraGroups = [
       "wheel" # sudo
       "networkmanager"

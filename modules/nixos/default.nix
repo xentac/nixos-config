@@ -13,6 +13,7 @@
     ./development.nix
     ./fonts.nix
     ./users.nix
+    ./shell.nix
     ./apps.nix
     ./gaming.nix
     ./backups.nix
