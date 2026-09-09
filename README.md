@@ -16,7 +16,7 @@ lines in that repo that need NixOS-specific tweaks.
 ```text
 flake.nix                       entry point: inputs (nixpkgs, nixos-hardware) + the one system
 flake.lock                      exact commits of every input; commit it
-hosts/framework/
+hosts/donatello/
   default.nix                   this machine: hardware variant, hostname, kernel, stateVersion
   hardware-configuration.nix    STUB — replace with nixos-generate-config output
 modules/nixos/
@@ -59,7 +59,7 @@ of them. Prefer the nixpkgs version of a tool when one exists.
 
 ### 2. The system is a function of this repo
 
-`nixos-rebuild switch --flake .#framework` evaluates `flake.nix`, which
+`nixos-rebuild switch --flake .#donatello` evaluates `flake.nix`, which
 builds one big attribute set describing the whole OS, then builds it, then
 activates it. Nothing you do with `apt`-style imperative commands exists;
 you edit a file and rebuild. Want a package? Add it to a list in a module
@@ -97,18 +97,18 @@ moves the pins forward. Commit both files. **Flakes only see files that
 git knows about**: after creating a new `.nix` file, `git add` it or the
 build will say the file does not exist.
 
-`system.stateVersion` in `hosts/framework/default.nix` is not "which
+`system.stateVersion` in `hosts/donatello/default.nix` is not "which
 version you run". It tells stateful services which on-disk format they
 were created with. Set it once at install and never bump it.
 
 ## How the pieces connect
 
 ```text
-nixos-rebuild switch --flake .#framework
-  └─ flake.nix: nixosConfigurations.framework
-       └─ hosts/framework/default.nix
-            ├─ inputs.nixos-hardware.nixosModules.framework-intel-core-ultra-series3
-            ├─ hosts/framework/hardware-configuration.nix   (disks, kernel modules)
+nixos-rebuild switch --flake .#donatello
+  └─ flake.nix: nixosConfigurations.donatello
+       └─ hosts/donatello/default.nix
+            ├─ inputs.nixos-hardware.nixosModules.framework-amd-ai-300-series
+            ├─ hosts/donatello/hardware-configuration.nix   (disks, kernel modules)
             └─ modules/nixos/default.nix
                  ├─ nix-settings.nix   boot.nix   locale-keyboard.nix
                  ├─ networking.nix     desktop.nix   audio.nix
@@ -117,16 +117,17 @@ nixos-rebuild switch --flake .#framework
 ```
 
 `specialArgs = { inherit inputs; }` in `flake.nix` is what lets
-`hosts/framework/default.nix` refer to `inputs.nixos-hardware`. Every module
+`hosts/donatello/default.nix` refer to `inputs.nixos-hardware`. Every module
 receives `pkgs` (the package set) and `lib` (helper functions) as arguments
 automatically.
 
 ## Decisions to make before installing
 
-1. **Mainboard variant.** The 13 Pro ships as Intel Core Ultra Series 3
-   or AMD Ryzen AI 300. `hosts/framework/default.nix` defaults to Intel.
-   Change the single import line for AMD, and swap `kvm-intel` for
-   `kvm-amd` plus the microcode line in `hardware-configuration.nix`.
+1. **Mainboard variant.** This config is for the AMD Ryzen AI 300 board.
+   For the Intel Core Ultra Series 3 board you would change the
+   nixos-hardware import in `hosts/donatello/default.nix`, and swap
+   `kvm-amd` and `hardware.cpu.amd` for their Intel equivalents in
+   `hardware-configuration.nix`.
 1. **Encryption and swap are one decision.** The Ubuntu install is
    unencrypted btrfs. The stub `hardware-configuration.nix` assumes LUKS on
    both root and swap; encrypting root but not swap is pointless because
@@ -187,7 +188,7 @@ automatically.
    nix-shell -p git   # git is not on the ISO by default
    git clone https://github.com/xentac/nixos-config /mnt/etc/nixos-config
    cp /mnt/etc/nixos/hardware-configuration.nix \
-      /mnt/etc/nixos-config/hosts/framework/hardware-configuration.nix
+      /mnt/etc/nixos-config/hosts/donatello/hardware-configuration.nix
    ```
 
    Re-add the `options = [ "subvol=..." "compress=zstd:1" ... ]` lines to the
@@ -198,7 +199,7 @@ automatically.
 
    ```bash
    cd /mnt/etc/nixos-config
-   nixos-install --flake .#framework
+   nixos-install --flake .#donatello
    ```
 
    It asks for the root password. GDM refuses root logins, so on first
@@ -222,7 +223,7 @@ automatically.
 
 | Task | Command |
 | --- | --- |
-| Apply a change | `just switch` (or `sudo nixos-rebuild switch --flake .#framework`) |
+| Apply a change | `just switch` (or `sudo nixos-rebuild switch --flake .#donatello`) |
 | Check for errors without activating | `just check` |
 | Try a change until next reboot | `just test` |
 | Undo the last switch | `sudo nixos-rebuild switch --rollback` |
@@ -339,7 +340,7 @@ What the survey found on Ubuntu and where it went.
 | AppImages (OpenAudible, koreader) | `appimage-run` | koreader is also in nixpkgs |
 | nvm + node 25, npm globals | `nodejs`, `pnpm`, `claude-code`, `gemini-cli`, `devcontainer`, `markdownlint-cli2` | |
 | cargo: jj, cargo-audit, cargo-binstall | `jujutsu`, `cargo-audit`, `cargo-binstall` | |
-| pipx: rofimoji, thunar-plugins | `rofimoji`, thunar plugins | |
+| pipx: rofimoji, thunar-plugins | `rofimoji`, thunar plugins | pipx itself is dropped; use `uv tool install` |
 | btrbk, restic, resticprofile, borgbackup | `backups.nix` + `apps.nix` | Restic repo config was root-only; fill in the TODO |
 | syncthing + syncthingtray | `apps.nix` | System service running as your user |
 | ollama | `services.ollama` (off) | Was inactive on Ubuntu |
@@ -380,13 +381,11 @@ decrypt at activation.
 
 - `hardware-configuration.nix` is a stub with placeholder UUIDs; the real
   one comes from the new machine.
-- Which mainboard you have. Intel is assumed.
 - Restic repositories and retention; the Ubuntu profiles were unreadable
   without sudo.
 - Sway input and output identifiers on the Framework.
-- `nixos-hardware`'s Panther Lake module is new; if graphics or suspend
-  misbehave, check its open issues and try `boot.kernelPackages =
-  pkgs.linuxPackages_testing`.
+- Suspend and graphics on Ryzen AI 300 under the newest kernel; if they
+  misbehave, check the nixos-hardware issues for `framework-amd-ai-300-series`.
 
 ## Troubleshooting
 

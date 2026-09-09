@@ -1,6 +1,6 @@
 # Day-to-day commands. `just` (already in your toolbox) runs these.
 
-host := "framework"
+host := "donatello"
 
 # Build + activate the config (needs sudo)
 switch:

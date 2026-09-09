@@ -1,12 +1,11 @@
-# hosts/framework/default.nix — everything specific to THIS machine.
+# hosts/donatello/default.nix — everything specific to THIS machine.
 # Shared, reusable settings live in ../../modules/nixos and are imported here.
 { inputs, pkgs, ... }:
 {
   imports = [
-    # === HARDWARE VARIANT: change this ONE line to match your mainboard ===
-    # Framework Laptop 13 Pro ships with either:
-    #   Intel Core Ultra Series 3 ("Panther Lake")  -> framework-intel-core-ultra-series3
-    #   AMD Ryzen AI 300 series                     -> framework-amd-ai-300-series
+    # Framework Laptop 13 Pro, AMD Ryzen AI 300 mainboard. (The Intel Core
+    # Ultra Series 3 board would use framework-intel-core-ultra-series3 and
+    # kvm-intel / hardware.cpu.intel in hardware-configuration.nix.)
     inputs.nixos-hardware.nixosModules.framework-amd-ai-300-series
 
     # Generated on the new machine by `nixos-generate-config`; the file
