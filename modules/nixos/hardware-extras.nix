@@ -32,7 +32,6 @@
   # power-profiles-daemon; don't ALSO enable TLP (they conflict).
   services.power-profiles-daemon.enable = lib.mkDefault true;
   services.upower.enable = true;
-  services.thermald.enable = lib.mkDefault true; # Intel only; harmless on AMD
 
   # Lid: suspend on battery, ignore when docked (external monitor at the desk).
   services.logind.settings.Login = {

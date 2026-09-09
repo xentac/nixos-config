@@ -107,7 +107,7 @@ were created with. Set it once at install and never bump it.
 nixos-rebuild switch --flake .#framework
   └─ flake.nix: nixosConfigurations.framework
        └─ hosts/framework/default.nix
-            ├─ inputs.nixos-hardware.nixosModules.framework-intel-core-ultra-series3
+            ├─ inputs.nixos-hardware.nixosModules.framework-amd-ai-300-series
             ├─ hosts/framework/hardware-configuration.nix   (disks, kernel modules)
             └─ modules/nixos/default.nix
                  ├─ nix-settings.nix   boot.nix   locale-keyboard.nix
@@ -123,10 +123,11 @@ automatically.
 
 ## Decisions to make before installing
 
-1. **Mainboard variant.** The 13 Pro ships as Intel Core Ultra Series 3
-   or AMD Ryzen AI 300. `hosts/framework/default.nix` defaults to Intel.
-   Change the single import line for AMD, and swap `kvm-intel` for
-   `kvm-amd` plus the microcode line in `hardware-configuration.nix`.
+1. **Mainboard variant.** This config is for the AMD Ryzen AI 300 board.
+   For the Intel Core Ultra Series 3 board you would change the
+   nixos-hardware import in `hosts/framework/default.nix`, and swap
+   `kvm-amd` and `hardware.cpu.amd` for their Intel equivalents in
+   `hardware-configuration.nix`.
 1. **Encryption and swap are one decision.** The Ubuntu install is
    unencrypted btrfs. The stub `hardware-configuration.nix` assumes LUKS on
    both root and swap; encrypting root but not swap is pointless because
@@ -380,13 +381,11 @@ decrypt at activation.
 
 - `hardware-configuration.nix` is a stub with placeholder UUIDs; the real
   one comes from the new machine.
-- Which mainboard you have. Intel is assumed.
 - Restic repositories and retention; the Ubuntu profiles were unreadable
   without sudo.
 - Sway input and output identifiers on the Framework.
-- `nixos-hardware`'s Panther Lake module is new; if graphics or suspend
-  misbehave, check its open issues and try `boot.kernelPackages =
-  pkgs.linuxPackages_testing`.
+- Suspend and graphics on Ryzen AI 300 under the newest kernel; if they
+  misbehave, check the nixos-hardware issues for `framework-amd-ai-300-series`.
 
 ## Troubleshooting
 
