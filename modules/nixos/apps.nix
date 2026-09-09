@@ -57,9 +57,9 @@
     # sync / backup / remote
     rclone
     nextcloud-client
-    rustdesk
-    restic
-    resticprofile
+    # rustdesk: large from-source build, not in the binary cache; use the
+    # flatpak (com.rustdesk.RustDesk) as on Ubuntu.
+    restic # resticprofile is replaced by services.restic.backups in backups.nix
     # dev-adjacent GUI
     bruno
     wireshark
