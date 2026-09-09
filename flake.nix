@@ -2,8 +2,8 @@
 #
 # A "flake" is just a Nix file with two things: `inputs` (other repos this
 # config depends on, pinned by flake.lock) and `outputs` (what this repo
-# produces — here, one NixOS system). `nixos-rebuild switch --flake .#framework`
-# evaluates outputs.nixosConfigurations.framework and activates it.
+# produces — here, one NixOS system). `nixos-rebuild switch --flake .#donatello`
+# evaluates outputs.nixosConfigurations.donatello and activates it.
 {
   description = "Jason's NixOS configuration";
 
@@ -14,7 +14,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
     # Community hardware quirks (Framework laptop kernel modules, power
-    # tweaks, fingerprint reader, etc). Consumed in hosts/framework/default.nix.
+    # tweaks, fingerprint reader, etc). Consumed in hosts/donatello/default.nix.
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
   };
 
@@ -28,12 +28,12 @@
     {
       # One machine == one entry here. Add a second laptop/server later by
       # adding another attribute pointing at another hosts/<name> directory.
-      nixosConfigurations.framework = nixpkgs.lib.nixosSystem {
+      nixosConfigurations.donatello = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         # `specialArgs` makes `inputs` available as an argument to every module,
         # so modules can reference e.g. inputs.nixos-hardware.
         specialArgs = { inherit inputs; };
-        modules = [ ./hosts/framework ];
+        modules = [ ./hosts/donatello ];
       };
     };
 }

@@ -1,4 +1,4 @@
-# hosts/framework/default.nix — everything specific to THIS machine.
+# hosts/donatello/default.nix — everything specific to THIS machine.
 # Shared, reusable settings live in ../../modules/nixos and are imported here.
 { inputs, pkgs, ... }:
 {
