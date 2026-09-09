@@ -1,24 +1,40 @@
-# NixOS configuration for the Framework Laptop 13 Pro
+# NixOS configuration for donatello (Framework Laptop 13 Pro)
 
-This repo is the complete, declarative description of the new laptop:
-bootloader, kernel, desktop, services, users, and every installed package.
-Rebuilding from it produces the same system every time. It was drafted from
-a survey of the Ubuntu 26.04 / sway install on the ThinkPad ("baxter") so
-the new machine starts out feeling like the old one.
+This repo is the complete, declarative description of donatello, the
+Framework Laptop 13 with the AMD Ryzen AI 300 mainboard: bootloader,
+kernel, desktop, services, users, and every installed package. The
+machine has been running from it since 2026-09-08. Rebuilding from it
+produces the same system every time.
 
 Dotfiles are **not** in here. They stay in chezmoi
-(<https://github.com/xentac/dotfiles>) and get applied the normal way after
-first boot. See [Dotfiles and chezmoi](#dotfiles-and-chezmoi) for the few
-lines in that repo that need NixOS-specific tweaks.
+(<https://github.com/xentac/dotfiles>). See
+[Dotfiles and chezmoi](#dotfiles-and-chezmoi) for how the two repos
+divide the work.
+
+Historical docs: [docs/install.md](docs/install.md) is the from-scratch
+(re)install walkthrough; [docs/migration.md](docs/migration.md) records
+the Ubuntu ("baxter") → NixOS migration this config came from.
+
+## Status
+
+- Installed and running since 2026-09-08; the system tracks this repo.
+- LUKS unlock via TPM is enrolled (passphrase stays as fallback).
+- btrbk local snapshots run daily and are verified working.
+- **TODO — offsite backup**: the restic block in `backups.nix` is still
+  commented out pending a repository decision. Local snapshots are not
+  a backup.
+- **TODO — hibernation untested**: `boot.resumeDevice` is set, but
+  nobody has run `systemctl hibernate` yet. After the next switch,
+  check `/sys/power/resume` is non-zero, then test at the laptop.
 
 ## Layout
 
 ```text
-flake.nix                       entry point: inputs (nixpkgs, nixos-hardware) + the one system
+flake.nix                       entry point: inputs (nixpkgs, nixos-hardware), the system, nix fmt formatter
 flake.lock                      exact commits of every input; commit it
 hosts/donatello/
-  default.nix                   this machine: hardware variant, hostname, kernel, stateVersion
-  hardware-configuration.nix    STUB — replace with nixos-generate-config output
+  default.nix                   this machine: hardware variant, hostname, kernel, hibernate, TPM, stateVersion
+  hardware-configuration.nix    disks/filesystems/LUKS, synced from the booted system
 modules/nixos/
   default.nix                   imports every module below
   nix-settings.nix              flakes on, GC, allowUnfree
@@ -32,10 +48,13 @@ modules/nixos/
   development.nix               toolchains, LSPs, nix-ld, direnv
   fonts.nix
   users.nix                     the xentac account and its groups
+  shell.nix                     zsh + starship (machinery only; config is in chezmoi)
   apps.nix                      GUI applications, syncthing, flatpak
   gaming.nix                    steam
-  backups.nix                   btrbk snapshots, restic skeleton
+  backups.nix                   btrbk snapshots, restic skeleton (TODO)
 justfile                        `just switch`, `just update`, `just gc`, ...
+docs/                           install walkthrough, migration record
+.github/workflows/check.yml     CI: evaluate the config + check formatting on push
 ```
 
 ## Nix in ten minutes
@@ -99,7 +118,7 @@ build will say the file does not exist.
 
 `system.stateVersion` in `hosts/donatello/default.nix` is not "which
 version you run". It tells stateful services which on-disk format they
-were created with. Set it once at install and never bump it.
+were created with. It was set at install and never gets bumped.
 
 ## How the pieces connect
 
@@ -113,111 +132,13 @@ nixos-rebuild switch --flake .#donatello
                  ├─ nix-settings.nix   boot.nix   locale-keyboard.nix
                  ├─ networking.nix     desktop.nix   audio.nix
                  ├─ hardware-extras.nix   virtualisation.nix   development.nix
-                 └─ fonts.nix   users.nix   apps.nix   gaming.nix   backups.nix
+                 └─ fonts.nix   users.nix   shell.nix   apps.nix   gaming.nix   backups.nix
 ```
 
 `specialArgs = { inherit inputs; }` in `flake.nix` is what lets
 `hosts/donatello/default.nix` refer to `inputs.nixos-hardware`. Every module
 receives `pkgs` (the package set) and `lib` (helper functions) as arguments
 automatically.
-
-## Decisions to make before installing
-
-1. **Mainboard variant.** This config is for the AMD Ryzen AI 300 board.
-   For the Intel Core Ultra Series 3 board you would change the
-   nixos-hardware import in `hosts/donatello/default.nix`, and swap
-   `kvm-amd` and `hardware.cpu.amd` for their Intel equivalents in
-   `hardware-configuration.nix`.
-1. **Encryption and swap are one decision.** The Ubuntu install is
-   unencrypted btrfs. The stub `hardware-configuration.nix` assumes LUKS on
-   both root and swap; encrypting root but not swap is pointless because
-   hibernation writes all of RAM to swap. Delete both `boot.initrd.luks`
-   blocks if you decide against encryption. With 64 GB RAM, make swap
-   64 GB if you want hibernation, 8 GB if you don't.
-1. **VirtualBox.** Recommended: drop it and run the `win10` VM under
-   libvirt (copy the qcow2 and XML). It is left commented out.
-
-## Install walkthrough
-
-1. Download the minimal or graphical NixOS 26.05 ISO from
-   <https://nixos.org/download> and write it to a USB stick.
-1. Boot it. If you use the graphical ISO, skip the Calamares installer
-   entirely and open a terminal; the steps below replace it. The console
-   is QWERTY until `loadkeys dvorak`.
-1. Partition the NVMe: a 1 GB EFI partition, a 64 GB swap partition, and
-   the rest for the encrypted root. Check the device name with `lsblk`
-   first; it is `nvme0n1` on most Frameworks.
-
-   ```bash
-   sudo -i
-   loadkeys dvorak
-   parted /dev/nvme0n1 -- mklabel gpt
-   parted /dev/nvme0n1 -- mkpart ESP fat32 1MiB 1GiB
-   parted /dev/nvme0n1 -- set 1 esp on
-   parted /dev/nvme0n1 -- mkpart swap 1GiB 65GiB
-   parted /dev/nvme0n1 -- mkpart root 65GiB 100%
-   ```
-
-   Then encrypt, format, and create the btrfs subvolumes that
-   `hardware-configuration.nix` expects:
-
-   ```bash
-   cryptsetup luksFormat /dev/nvme0n1p2      # swap
-   cryptsetup luksFormat /dev/nvme0n1p3      # root (use the SAME passphrase)
-   cryptsetup open /dev/nvme0n1p2 cryptswap
-   cryptsetup open /dev/nvme0n1p3 cryptroot
-   mkfs.btrfs -L nixos /dev/mapper/cryptroot
-   mount /dev/mapper/cryptroot /mnt
-   btrfs subvolume create /mnt/@
-   btrfs subvolume create /mnt/@home
-   btrfs subvolume create /mnt/@nix
-   umount /mnt
-   O=compress=zstd:1,noatime,ssd,discard=async,space_cache=v2
-   mount -o subvol=@,$O /dev/mapper/cryptroot /mnt
-   mkdir -p /mnt/{home,nix,boot}
-   mount -o subvol=@home,$O /dev/mapper/cryptroot /mnt/home
-   mount -o subvol=@nix,$O /dev/mapper/cryptroot /mnt/nix
-   mkfs.fat -F32 /dev/nvme0n1p1 && mount /dev/nvme0n1p1 /mnt/boot
-   mkswap /dev/mapper/cryptswap && swapon /dev/mapper/cryptswap
-   ```
-
-1. Generate the real hardware file and bring this repo in:
-
-   ```bash
-   nixos-generate-config --root /mnt
-   nix-shell -p git   # git is not on the ISO by default
-   git clone https://github.com/xentac/nixos-config /mnt/etc/nixos-config
-   cp /mnt/etc/nixos/hardware-configuration.nix \
-      /mnt/etc/nixos-config/hosts/donatello/hardware-configuration.nix
-   ```
-
-   Re-add the `options = [ "subvol=..." "compress=zstd:1" ... ]` lines to the
-   generated file; the generator drops mount options. It will name the LUKS
-   devices by the mapper names you used (`cryptroot`, `cryptswap`) and put
-   the real UUIDs in. Then `git add` it.
-1. Install and reboot:
-
-   ```bash
-   cd /mnt/etc/nixos-config
-   nixos-install --flake .#donatello
-   ```
-
-   It asks for the root password. GDM refuses root logins, so on first
-   boot switch to a TTY (Ctrl-Alt-F2), log in as root, and run
-   `passwd xentac`. Then log in as yourself at GDM.
-
-1. First boot checklist:
-
-   ```bash
-   sudo mv /etc/nixos-config ~/coding/nixos-config   # or clone fresh
-   sudo tailscale up
-   chezmoi init --apply xentac                        # dotfiles
-   fprintd-enroll                                     # fingerprint
-   fwupdmgr refresh && fwupdmgr update                # Framework firmware
-   flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-   rustup default stable
-   sudo btrfs subvolume create /.snapshots            # btrbk target
-   ```
 
 ## Daily use
 
@@ -229,6 +150,7 @@ automatically.
 | Undo the last switch | `sudo nixos-rebuild switch --rollback` |
 | Update all packages | `just update && just switch` |
 | Free disk space | `just gc` |
+| Format the .nix files | `just fmt` (runs `nix fmt`; CI enforces it) |
 | Run a program once without installing | `nix run nixpkgs#cowsay` |
 | Shell with extra tools | `nix shell nixpkgs#hugo nixpkgs#go` |
 | Search packages | `nix search nixpkgs foo` or <https://search.nixos.org> |
@@ -236,7 +158,8 @@ automatically.
 
 Editing workflow: change a file, `git add` it if new, `just switch`. A
 typo produces an evaluation error before anything touches the system;
-read the last few lines, they name the file and option.
+read the last few lines, they name the file and option. CI runs the same
+evaluation (plus a format check) on every push.
 
 ### Per-project tools instead of global installs
 
@@ -254,34 +177,17 @@ Add a package to `environment.systemPackages` (everyone) or
 
 ## Dotfiles and chezmoi
 
-`chezmoi init --apply xentac` works unchanged. A few things in that repo
-assume Ubuntu paths and will need edits (do them in the chezmoi source, not
-here):
+The split: NixOS installs programs and enables machinery; chezmoi
+configures them. `shell.nix` enables zsh, autosuggestions, syntax
+highlighting, and the starship prompt system-wide, but aliases,
+functions, `~/.zshrc`, and `~/.config/starship.toml` come from chezmoi
+(zsh reads `/etc/zshrc` — this config — before `~/.zshrc`, and starship
+prefers the user config when it exists). The custom Dvorak variant in
+`~/.config/xkb/symbols/custom` is also chezmoi's; libxkbcommon reads
+that directory on every distro.
 
-- `.bashrc`: `source /etc/bash_completion` does not exist on NixOS. Delete
-  it; `programs.bash.completion.enable` in `users.nix` wires completion
-  in automatically. Also drop the `~/.local/kitty.app/bin` PATH entry and
-  the nvm block (nvm's downloaded node works via nix-ld but `nodejs` from
-  nixpkgs is already on PATH).
-- `.config/sway/config`: replace the three
-  `/home/xentac/.local/kitty.app/bin/kitty` with `kitty`, and
-  `/home/xentac/.local/bin/rofimoji` with `rofimoji`. Remove the
-  `ThinkPad_Extra_Buttons` input block and the
-  `1:1:AT_Translated_Set_2_keyboard` identifier will likely differ; run
-  `swaymsg -t get_inputs` on the new machine. The i3 leftovers
-  (`i3-input`, `i3-msg exit`, `dex -ae i3`, `xset -dpms`) do nothing under
-  sway. `dispwin $HOME/.icc/display.cal` is the ThinkPad panel's
-  calibration; comment it out. Output names `DP-3`/`eDP-1` may change.
-  Consider adding `input type:keyboard { xkb_layout custom }` so external
-  keyboards get your layout too.
-- `.config/xkb/symbols/custom` needs no change; libxkbcommon reads
-  `~/.config/xkb` on every distro.
-- `.Xmodmap` is dead weight under Wayland.
-- `run_once-install-tmux-modules.sh` (TPM) still works on NixOS because
-  tmux plugins are shell scripts. `run_once-install-vim-modules.sh` is
-  superseded by LazyVim.
-- `bin/kb-toggle` and the waybar `custom/keyboard` module reference the
-  same keyboard identifier as sway; update together.
+After a change that looks wrong on the desktop: it is usually dotfiles,
+not NixOS. `chezmoi diff` first.
 
 ### LazyVim on NixOS
 
@@ -314,40 +220,12 @@ Any tool still listed under Mason's `ensure_installed` by an extra will be
 downloaded to `~/.local/share/nvim/mason`; check `:Mason` after first
 launch and disable what fails. If LazyVim reports a missing tool, add it
 to `development.nix`.
-Also add `nil` to your LSP config for editing this repo (already installed).
 
-## Migration table
+## Remote access
 
-What the survey found on Ubuntu and where it went.
-
-| Ubuntu (apt/snap/flatpak) | NixOS | Notes |
-| --- | --- | --- |
-| GDM + sway session | `desktop.nix` | `programs.sway` also registers swaylock's PAM entry |
-| waybar, mako, rofi, grim, slurp, swayidle, swaylock, wl-clipboard | `desktop.nix` | `bemenu`, `kanshi`, `playerctl` were referenced by sway config but not installed; added |
-| kitty from `~/.local/kitty.app` | `pkgs.kitty` | Fix the sway binding paths |
-| Dvorak via `/etc/default/keyboard` | `locale-keyboard.nix` | Console, GDM, and sway each configured |
-| pipewire, pulseaudio-utils, pavucontrol | `audio.nix` | `pactl` still works |
-| NetworkManager, tailscale, mosh, openssh-server | `networking.nix` | |
-| NordVPN client | not packaged | Use `wireguard-tools` + NetworkManager with generated configs |
-| docker-ce, podman, libvirt, virt-manager, qemu | `virtualisation.nix` | |
-| virtualbox | commented out | Conflicts with KVM; prefer libvirt |
-| cups + Canon UFR II (`cncups*`) | `hardware-extras.nix` | Canon UFR II not in nixpkgs; use driverless IPP |
-| bluez, blueman | `hardware-extras.nix` | |
-| yubikey-manager, pcscd | `hardware-extras.nix` | |
-| snap: firefox, chromium, thunderbird, discord, steam, go, rustup, rclone, bw, subsurface, google-cloud-cli | nixpkgs | All present |
-| flatpak: Slack, Obsidian, Anki, Element, Bruno, Nextcloud, Shotcut, OpenCPN | nixpkgs | All present |
-| flatpak: RustDesk, Sober (Roblox), Flatseal, Emote, Smile, SteamLink | flatpak | Keep on flathub; `services.flatpak` stays enabled |
-| AppImages (OpenAudible, koreader) | `appimage-run` | koreader is also in nixpkgs |
-| nvm + node 25, npm globals | `nodejs`, `pnpm`, `claude-code`, `gemini-cli`, `devcontainer`, `markdownlint-cli2` | |
-| cargo: jj, cargo-audit, cargo-binstall | `jujutsu`, `cargo-audit`, `cargo-binstall` | |
-| pipx: rofimoji, thunar-plugins | `rofimoji`, thunar plugins | pipx itself is dropped; use `uv tool install` |
-| btrbk, restic, resticprofile, borgbackup | `backups.nix` + `apps.nix` | `services.restic.backups` replaces resticprofile; repo config was root-only, fill in the TODO |
-| syncthing + syncthingtray | `apps.nix` | System service running as your user |
-| ollama | `services.ollama` (off) | Was inactive on Ubuntu |
-| unattended-upgrades, snapd, timeshift | gone | Rebuild + generations replace all three |
-| autokey, xautolock, xss-lock, compton, i3, maim | dropped | X11-only |
-| hyprland | commented out | `programs.hyprland.enable = true` if you still want it |
-| texlive-fonts-extra, R | `R` installed; TeX not | Add `texliveMedium` if you need LaTeX |
+SSH comes in over tailscale: `tailscale0` is a trusted interface in
+`networking.nix`, sshd allows keys only (no passwords), and
+`~/.ssh/authorized_keys` is chezmoi-managed. No key lives in this repo.
 
 ## Secrets
 
@@ -355,37 +233,12 @@ What the survey found on Ubuntu and where it went.
 is readable by every user and process on the machine, and by anyone with
 the repo. Never put tokens here.
 
-The Ubuntu `.bashrc` exports a GitHub personal access token, an Alpha
-Vantage key, and an admin token in plaintext. Those got printed while
-surveying the machine. Rotate them, and move them into a file chezmoi does
-not track (for example `~/.config/secrets.sh`) that `.bashrc` sources if
-present.
-
 For secrets a *service* needs (restic password, wireguard keys), the
 pattern used here is a root-only file under `/etc` referenced by path, for
 example `passwordFile = "/etc/restic/password"`. When you outgrow that,
 look at `sops-nix` or `agenix`, which encrypt secrets into the repo and
-decrypt at activation.
-
-## Verified
-
-- The whole configuration evaluates end to end against nixpkgs 26.05
-  (`nix eval ...system.build.toplevel`), so every option and package name
-  resolves. It has not been booted.
-- The Dvorak keymap reaches the LUKS prompt: with the systemd initrd,
-  `console.keyMap` is written into the initrd's `vconsole.conf` and applied
-  by `systemd-vconsole-setup` (checked in the locked nixpkgs source,
-  `nixos/modules/config/console.nix`).
-
-## Not verified
-
-- `hardware-configuration.nix` is a stub with placeholder UUIDs; the real
-  one comes from the new machine.
-- Restic repositories and retention; the Ubuntu profiles were unreadable
-  without sudo.
-- Sway input and output identifiers on the Framework.
-- Suspend and graphics on Ryzen AI 300 under the newest kernel; if they
-  misbehave, check the nixos-hardware issues for `framework-amd-ai-300-series`.
+decrypt at activation. User-level secrets live in a file chezmoi does not
+track (`~/.config/secrets.sh`) that the shell rc sources if present.
 
 ## Troubleshooting
 
@@ -404,3 +257,5 @@ decrypt at activation.
   `lib.hiPrio` on the one you want, or remove the other.
 - Rebuild succeeded but the desktop looks wrong: dotfiles, not NixOS.
   `chezmoi diff`.
+- Suspend/graphics oddities on the Ryzen AI 300: check the nixos-hardware
+  issues for `framework-amd-ai-300-series`.

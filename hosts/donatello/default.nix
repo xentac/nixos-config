@@ -8,8 +8,8 @@
     # kvm-intel / hardware.cpu.intel in hardware-configuration.nix.)
     inputs.nixos-hardware.nixosModules.framework-amd-ai-300-series
 
-    # Generated on the new machine by `nixos-generate-config`; the file
-    # checked in here is a STUB. See README "Install walkthrough".
+    # `nixos-generate-config` output synced from the booted machine, plus
+    # the btrfs mount options the generator drops. See docs/install.md.
     ./hardware-configuration.nix
 
     # All the reusable modules (each one is a small, commented file).

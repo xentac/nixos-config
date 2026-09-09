@@ -1,5 +1,4 @@
-# Your user account. Set the password on first boot with `passwd`
-# (or set users.users.xentac.hashedPassword from `mkpasswd`).
+# Your user account. The password is imperative state, set with `passwd`.
 { pkgs, ... }:
 {
   users.users.xentac = {
@@ -20,8 +19,8 @@
       "lp"
       "input"
     ];
-    # Drop your public key here so ssh works before you've copied dotfiles:
-    # openssh.authorizedKeys.keys = [ "ssh-ed25519 AAAA... jchu@xentac.net" ];
+    # No key here on purpose: ssh comes in over tailscale and
+    # ~/.ssh/authorized_keys is chezmoi-managed.
   };
 
   programs.bash.completion.enable = true; # system-wide bash-completion
