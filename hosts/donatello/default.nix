@@ -22,9 +22,10 @@
   # this; `lib.mkForce` isn't needed since we agree.
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
-  # Hibernate support: the (encrypted) swap device from hardware-configuration.nix.
-  # Uncomment once swap exists and is >= RAM.
-  # boot.resumeDevice = "/dev/mapper/cryptswap";
+  # Hibernate into the encrypted swap device (64 GB, = RAM) from
+  # hardware-configuration.nix. NOT YET TESTED: after the next switch, check
+  # /sys/power/resume is non-zero and try `systemctl hibernate` at the laptop.
+  boot.resumeDevice = "/dev/mapper/cryptswap";
 
   # Unlock LUKS from the TPM at boot (no passphrase prompt). Harmless until a
   # key is enrolled — it falls back to the passphrase. Enroll once per device:
