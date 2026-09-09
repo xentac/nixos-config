@@ -12,7 +12,6 @@
       "video" # brightnessctl
       "audio"
       "dialout" # serial devices (OpenCPN, NMEA, Arduino)
-      "plugdev"
       "kvm"
       "libvirtd"
       "docker"
