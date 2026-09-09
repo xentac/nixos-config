@@ -66,9 +66,9 @@
     rclone
     nextcloud-client
     syncthingtray
-    rustdesk
-    restic
-    resticprofile
+    # rustdesk: large from-source build, not in the binary cache; use the
+    # flatpak (com.rustdesk.RustDesk) as on Ubuntu.
+    restic # resticprofile is replaced by services.restic.backups in backups.nix
     borgbackup
     # dev-adjacent GUI
     bruno

@@ -335,13 +335,13 @@ What the survey found on Ubuntu and where it went.
 | bluez, blueman | `hardware-extras.nix` | |
 | yubikey-manager, pcscd | `hardware-extras.nix` | |
 | snap: firefox, chromium, thunderbird, discord, steam, go, rustup, rclone, bw, subsurface, google-cloud-cli | nixpkgs | All present |
-| flatpak: Slack, Obsidian, Anki, Element, Bruno, RustDesk, Nextcloud, Shotcut, OpenCPN | nixpkgs | All present |
-| flatpak: Sober (Roblox), Flatseal, Emote, Smile, SteamLink | flatpak | Keep on flathub; `services.flatpak` stays enabled |
+| flatpak: Slack, Obsidian, Anki, Element, Bruno, Nextcloud, Shotcut, OpenCPN | nixpkgs | All present |
+| flatpak: RustDesk, Sober (Roblox), Flatseal, Emote, Smile, SteamLink | flatpak | Keep on flathub; `services.flatpak` stays enabled |
 | AppImages (OpenAudible, koreader) | `appimage-run` | koreader is also in nixpkgs |
 | nvm + node 25, npm globals | `nodejs`, `pnpm`, `claude-code`, `gemini-cli`, `devcontainer`, `markdownlint-cli2` | |
 | cargo: jj, cargo-audit, cargo-binstall | `jujutsu`, `cargo-audit`, `cargo-binstall` | |
 | pipx: rofimoji, thunar-plugins | `rofimoji`, thunar plugins | pipx itself is dropped; use `uv tool install` |
-| btrbk, restic, resticprofile, borgbackup | `backups.nix` + `apps.nix` | Restic repo config was root-only; fill in the TODO |
+| btrbk, restic, resticprofile, borgbackup | `backups.nix` + `apps.nix` | `services.restic.backups` replaces resticprofile; repo config was root-only, fill in the TODO |
 | syncthing + syncthingtray | `apps.nix` | System service running as your user |
 | ollama | `services.ollama` (off) | Was inactive on Ubuntu |
 | unattended-upgrades, snapd, timeshift | gone | Rebuild + generations replace all three |
