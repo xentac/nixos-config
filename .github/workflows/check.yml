@@ -1,0 +1,28 @@
+# Evaluate the config on every push so a typo never reaches the laptop.
+# Evaluation (instantiating the toplevel derivation) catches bad option
+# names, missing packages, and syntax errors — everything `just check`
+# catches short of actually compiling, which would not fit a CI runner.
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - name: Evaluate the system configuration
+        run: nix eval --raw .#nixosConfigurations.donatello.config.system.build.toplevel.drvPath
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - name: Check formatting
+        run: |
+          nix fmt
+          git diff --exit-code
