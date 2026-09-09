@@ -26,6 +26,6 @@ update:
 gc:
     sudo nix-collect-garbage --delete-older-than 30d
 
-# Format all .nix files
+# Format all .nix files (runs the flake's formatter output)
 fmt:
-    find . -name "*.nix" -exec nixfmt {} +
+    nix fmt

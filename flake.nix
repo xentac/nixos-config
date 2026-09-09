@@ -38,5 +38,8 @@
         specialArgs = { inherit inputs; };
         modules = [ ./hosts/donatello ];
       };
+
+      # `nix fmt` (and `just fmt`) formats the whole tree with nixfmt.
+      formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt-tree;
     };
 }
