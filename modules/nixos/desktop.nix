@@ -62,6 +62,13 @@
   # Wayland instead of XWayland.
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
+  # Cursor theme/size for every app. Without these the 2x-scaled Framework
+  # panel gets a tiny (and sometimes janky, software-rendered) cursor.
+  # Size is LOGICAL pixels: sway multiplies by output scale when rendering.
+  # The sway config has a matching `seat * xcursor_theme Adwaita 24` rule.
+  environment.sessionVariables.XCURSOR_THEME = "Adwaita";
+  environment.sessionVariables.XCURSOR_SIZE = "24";
+
   # brightnessctl without sudo (installs udev rules; user is in "video").
   services.udev.packages = [ pkgs.brightnessctl ];
 
