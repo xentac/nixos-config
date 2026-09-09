@@ -9,6 +9,7 @@
   services.ollama.enable = false;
 
   users.users.xentac.packages = with pkgs; [
+    killall
     chezmoi
     # browsers
     google-chrome
