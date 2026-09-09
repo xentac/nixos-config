@@ -1,0 +1,10 @@
+# MD013: line length — keep prose wrapped, but tables and code blocks
+# often can't be wrapped without breaking them, so exempt those.
+MD013:
+  line_length: 80
+  code_blocks: false
+  tables: false
+
+# MD033: inline HTML — off by default here since reference docs sometimes
+# need a raw <br> or <details> block; turn this back on for stricter repos.
+MD033: false
