@@ -31,6 +31,9 @@
   # Login manager. GDM works fine with sway and unlocks gnome-keyring at
   # login (Chrome/Slack/etc store secrets there). Alternative: greetd + tuigreet.
   services.displayManager.gdm.enable = true;
+  # Without an explicit default, GDM's fallback picks its internal
+  # gnome-greeter session (Exec=gnome-session) and login fails.
+  services.displayManager.defaultSession = "sway";
   services.xserver.enable = true; # also makes services.xserver.xkb apply to GDM
   services.xserver.excludePackages = [ pkgs.xterm ];
 
