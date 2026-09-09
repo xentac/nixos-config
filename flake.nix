@@ -16,6 +16,9 @@
     # Community hardware quirks (Framework laptop kernel modules, power
     # tweaks, fingerprint reader, etc). Consumed in hosts/donatello/default.nix.
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+    # nixos-hardware declares its own nixpkgs (for its CI); point it at ours
+    # so flake.lock doesn't carry a second, stale nixpkgs pin.
+    nixos-hardware.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
