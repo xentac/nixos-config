@@ -23,9 +23,11 @@ the Ubuntu ("baxter") → NixOS migration this config came from.
 - **TODO — offsite backup**: the restic block in `backups.nix` is still
   commented out pending a repository decision. Local snapshots are not
   a backup.
-- **TODO — hibernation untested**: `boot.resumeDevice` is set, but
-  nobody has run `systemctl hibernate` yet. After the next switch,
-  check `/sys/power/resume` is non-zero, then test at the laptop.
+- **TODO — hibernation untested**: `boot.resumeDevice` is set, but it
+  becomes a `resume=` kernel parameter, so it only takes effect on the
+  next boot — a switch is not enough. Reboot, then test
+  `systemctl hibernate` at the laptop: expect a full power-off, then
+  resume through the LUKS unlock with the session intact.
 
 ## Layout
 

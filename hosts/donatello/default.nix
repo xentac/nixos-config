@@ -23,8 +23,10 @@
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
   # Hibernate into the encrypted swap device (64 GB, = RAM) from
-  # hardware-configuration.nix. NOT YET TESTED: after the next switch, check
-  # /sys/power/resume is non-zero and try `systemctl hibernate` at the laptop.
+  # hardware-configuration.nix. This becomes a `resume=` kernel parameter, so
+  # it takes effect on the next BOOT, not on switch. NOT YET TESTED: reboot,
+  # then try `systemctl hibernate` at the laptop (expect full power-off,
+  # then resume through the LUKS unlock with the session intact).
   boot.resumeDevice = "/dev/mapper/cryptswap";
 
   # Unlock LUKS from the TPM at boot (no passphrase prompt). Harmless until a
