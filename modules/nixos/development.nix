@@ -37,7 +37,7 @@
     fzf
     ripgrep
     fd
-    jq
+    # jq comes from desktop.nix: sway's screenshot/keyboard bindings need it
     yq-go
     just
     tree
