@@ -81,5 +81,6 @@
     libnotify # notify-send
     kitty # your terminal (no more ~/.local/kitty.app)
     argyllcms # dispwin, if you re-calibrate the new panel
+    seahorse
   ];
 }
