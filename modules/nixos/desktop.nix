@@ -72,9 +72,6 @@
   # brightnessctl without sudo (installs udev rules; user is in "video").
   services.udev.packages = [ pkgs.brightnessctl ];
 
-  # You also had hyprland installed on Ubuntu. Flip this on to get it in GDM.
-  # programs.hyprland.enable = true;
-
   environment.systemPackages = with pkgs; [
     networkmanagerapplet # nm-applet, exec'd from your sway config
     pavucontrol

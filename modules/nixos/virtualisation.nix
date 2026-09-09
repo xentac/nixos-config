@@ -22,11 +22,6 @@
   programs.virt-manager.enable = true;
   virtualisation.spiceUSBRedirection.enable = true;
 
-  # VirtualBox fights KVM for the virtualization extensions and needs an
-  # out-of-tree kernel module that lags new kernels. Recommendation: drop it
-  # and use libvirt for everything. Uncomment to keep it anyway.
-  # virtualisation.virtualbox.host.enable = true;
-
   environment.systemPackages = with pkgs; [
     docker-compose
     podman-compose
