@@ -26,6 +26,14 @@
   # Uncomment once swap exists and is >= RAM.
   # boot.resumeDevice = "/dev/mapper/cryptswap";
 
+  # Unlock LUKS from the TPM at boot (no passphrase prompt). Harmless until a
+  # key is enrolled — it falls back to the passphrase. Enroll once per device:
+  #   sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 /dev/disk/by-uuid/<uuid>
+  # (UUIDs are in hardware-configuration.nix; the passphrase stays as fallback.
+  # PCR 7 = Secure Boot state, so kernel/BIOS updates don't force re-enrolling.)
+  boot.initrd.luks.devices."cryptroot".crypttabExtraOpts = [ "tpm2-device=auto" ];
+  boot.initrd.luks.devices."cryptswap".crypttabExtraOpts = [ "tpm2-device=auto" ];
+
   # DO NOT bump this after install. It records which NixOS release first
   # created stateful data (DB formats, etc.) and is not "the version you run".
   system.stateVersion = "26.05";
