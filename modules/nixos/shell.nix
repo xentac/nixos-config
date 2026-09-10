@@ -7,7 +7,10 @@
 { pkgs, ... }:
 {
   # Unified git+jj prompt module, wired up via [custom.jj] in starship.toml.
-  environment.systemPackages = [ pkgs.jj-starship ];
+  environment.systemPackages = [
+    pkgs.jj-starship
+    pkgs.dig
+  ];
 
   programs.zsh = {
     enable = true; # registers zsh in /etc/shells; required for shell = pkgs.zsh
