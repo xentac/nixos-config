@@ -32,37 +32,45 @@
   #        --include /.snapshots/restic-home/xentac/Documents
   # (`restic-home` is a wrapper the module generates with repo + password set.)
   #
-  # services.restic.backups.home = {
-  #   repository = "TODO e.g. sftp:user@host:/backups/donatello or b2:bucket:path";
-  #   passwordFile = "/etc/restic/password";
-  #   initialize = true; # create the repo on first run if it doesn't exist
-  #
-  #   # Read-only snapshot at a FIXED path so restic's parent-snapshot
-  #   # matching and dedup keep working run to run. The delete first handles
-  #   # a previous run that died before cleanup.
-  #   backupPrepareCommand = ''
-  #     ${pkgs.btrfs-progs}/bin/btrfs subvolume delete /.snapshots/restic-home 2>/dev/null || true
-  #     ${pkgs.btrfs-progs}/bin/btrfs subvolume snapshot -r /home /.snapshots/restic-home
-  #   '';
-  #   paths = [ "/.snapshots/restic-home" ];
-  #   backupCleanupCommand = ''
-  #     ${pkgs.btrfs-progs}/bin/btrfs subvolume delete /.snapshots/restic-home
-  #   '';
-  #
-  #   exclude = [
-  #     "/.snapshots/restic-home/xentac/.cache"
-  #     "/.snapshots/restic-home/xentac/.local/share/Steam"
-  #     "/.snapshots/restic-home/xentac/.local/share/Trash"
-  #   ];
-  #   timerConfig = {
-  #     OnCalendar = "daily";
-  #     Persistent = true; # run at next boot if the laptop was off at the time
-  #   };
-  #   pruneOpts = [
-  #     "--keep-daily 7"
-  #     "--keep-weekly 4"
-  #     "--keep-monthly 6"
-  #   ];
-  #   inhibitsSleep = true; # don't suspend mid-backup
-  # };
+  services.restic.backups.home = {
+    repository = "b2:restic-donatello:";
+    passwordFile = "/etc/restic/password";
+    environmentFile = "/etc/restic/environment";
+    initialize = true; # create the repo on first run if it doesn't exist
+
+    # Read-only snapshot at a FIXED path so restic's parent-snapshot
+    # matching and dedup keep working run to run. The delete first handles
+    # a previous run that died before cleanup.
+    backupPrepareCommand = ''
+      ${pkgs.btrfs-progs}/bin/btrfs subvolume delete /.snapshots/restic-home 2>/dev/null || true
+      ${pkgs.btrfs-progs}/bin/btrfs subvolume snapshot -r /home /.snapshots/restic-home
+    '';
+    paths = [ "/.snapshots/restic-home" ];
+    backupCleanupCommand = ''
+      ${pkgs.btrfs-progs}/bin/btrfs subvolume delete /.snapshots/restic-home
+    '';
+
+    extraBackupArgs = [
+      "--exclude-caches" # skips anything with a CACHEDIR.TAG (cargo, etc.)
+      "--exclude-if-present"
+      ".nobackup" # skips any dir containing this marker file
+    ];
+
+    exclude = [
+      "/.snapshots/restic-home/**/.git/annex/objects"
+      "/.snapshots/restic-home/xentac/.cache"
+      "/.snapshots/restic-home/xentac/.local/share/Steam"
+      "/.snapshots/restic-home/xentac/.local/share/Trash"
+    ];
+    timerConfig = {
+      OnCalendar = "daily";
+      Persistent = true; # run at next boot if the laptop was off at the time
+    };
+    pruneOpts = [
+      "--keep-daily 7"
+      "--keep-weekly 4"
+      "--keep-monthly 6"
+    ];
+    inhibitsSleep = true; # don't suspend mid-backup
+  };
 }
