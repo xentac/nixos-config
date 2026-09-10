@@ -42,6 +42,10 @@
   # feels like cursor lag (measured Sep 2026: p90 interval 35 ms -> 7 ms after
   # this). Device names are this machine's: AMDI0010:03 is the Designware I2C
   # controller, 0018:093A:1343.* the HID device (suffix varies per boot).
+  # Note: this is the Framework 13 Pro's *haptic* touchpad — it reuses the
+  # PIXA3854 / 093A:1343 IDs of the older mechanical pads (same PixArt touch
+  # controller), but its HID descriptor has the Haptics usage page and clicks
+  # come from firmware-driven piezos. Don't infer "mechanical" from the ID.
   services.udev.extraRules = ''
     ACTION=="add", SUBSYSTEM=="platform", KERNEL=="AMDI0010:03", ATTR{power/control}="on"
     ACTION=="add", SUBSYSTEM=="i2c", KERNEL=="i2c-PIXA3854:00", ATTR{power/control}="on"
