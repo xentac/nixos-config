@@ -30,6 +30,7 @@
     keepassxc
     bitwarden-cli
     age
+    gnupg
     gocryptfs
     # office / docs
     libreoffice-fresh
