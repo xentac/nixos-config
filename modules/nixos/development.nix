@@ -71,6 +71,7 @@
     # --- languages
     nodejs
     pnpm
+    bun
     go
     rustup # `rustup default stable` once; nixpkgs patches toolchains to work
     cargo-audit
