@@ -59,6 +59,8 @@
     exclude = [
       "/.snapshots/restic-home/**/.git/annex/objects"
       "/.snapshots/restic-home/xentac/.cache"
+      "/.snapshots/restic-home/xentac/.npm"
+      "/.snapshots/restic-home/xentac/go"
       "/.snapshots/restic-home/xentac/.local/share/Steam"
       "/.snapshots/restic-home/xentac/.local/share/Trash"
     ];
