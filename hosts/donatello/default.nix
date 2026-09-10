@@ -37,6 +37,17 @@
   boot.initrd.luks.devices."cryptroot".crypttabExtraOpts = [ "tpm2-device=auto" ];
   boot.initrd.luks.devices."cryptswap".crypttabExtraOpts = [ "tpm2-device=auto" ];
 
+  # Keep the touchpad's I2C path awake. With runtime PM on "auto" the PIXA3854
+  # touchpad dozes between event bursts and wakes with ~35 ms stalls, which
+  # feels like cursor lag (measured Sep 2026: p90 interval 35 ms -> 7 ms after
+  # this). Device names are this machine's: AMDI0010:03 is the Designware I2C
+  # controller, 0018:093A:1343.* the HID device (suffix varies per boot).
+  services.udev.extraRules = ''
+    ACTION=="add", SUBSYSTEM=="platform", KERNEL=="AMDI0010:03", ATTR{power/control}="on"
+    ACTION=="add", SUBSYSTEM=="i2c", KERNEL=="i2c-PIXA3854:00", ATTR{power/control}="on"
+    ACTION=="add", SUBSYSTEM=="hid", KERNEL=="0018:093A:1343.*", ATTR{power/control}="on"
+  '';
+
   # DO NOT bump this after install. It records which NixOS release first
   # created stateful data (DB formats, etc.) and is not "the version you run".
   system.stateVersion = "26.05";
