@@ -33,6 +33,9 @@
   # (`restic-home` is a wrapper the module generates with repo + password set.)
   #
   services.restic.backups.home = {
+    # When a second host joins, switch to one repo per host via sub-paths
+    # ("b2:xentac-backups:restic/${config.networking.hostName}") — see
+    # docs/backups.md for the rationale.
     repository = "b2:restic-donatello:";
     passwordFile = "/etc/restic/password";
     environmentFile = "/etc/restic/environment";

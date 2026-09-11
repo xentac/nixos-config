@@ -14,6 +14,8 @@ divide the work.
 Historical docs: [docs/install.md](docs/install.md) is the from-scratch
 (re)install walkthrough; [docs/migration.md](docs/migration.md) records
 the Ubuntu ("baxter") → NixOS migration this config came from.
+Design notes: [docs/backups.md](docs/backups.md) records the
+one-restic-repo-per-host decision for when a second machine joins.
 
 ## Status
 
