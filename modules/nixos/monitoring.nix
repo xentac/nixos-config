@@ -56,10 +56,12 @@
 
   # Continuous ICMP latency probes on 127.0.0.1:9374 — the classic
   # smokeping latency/loss graphs. Targets are layered so problems can be
-  # localized: LAN hop -> dish -> first hop past the satellite -> internet.
-  # Data cost on the metered Starlink link: only the last two traverse it,
-  # and at one ping each per 15s that's ~2 MB/day total — negligible even
-  # in ocean mode. (The 1s default would be ~15x that.)
+  # localized: LAN hop -> dish -> internet (two anycast references) ->
+  # tailnet machines. Data cost on the metered Starlink link: the last
+  # four traverse it, ~4 MB/day total at one ping each per 15s —
+  # negligible even in ocean mode. (The 1s default would be ~15x that.)
+  # Tailnet targets are raw Tailscale IPs, not MagicDNS names: the prober
+  # resolves names only once at startup, which races tailscaled at boot.
   services.prometheus.exporters.smokeping = {
     enable = true;
     listenAddress = "127.0.0.1";
@@ -67,8 +69,10 @@
     hosts = [
       "192.168.1.1" # local router (WiFi/LAN health, free)
       "192.168.100.1" # the Starlink dish itself (free, doesn't touch the sky)
-      "100.64.0.1" # Starlink ground-station gateway (first hop via satellite)
       "1.1.1.1" # Cloudflare anycast (general internet reachability)
+      "8.8.8.8" # Google anycast (second reference: Cloudflare vs internet)
+      "100.83.4.27" # droplet1 via tailnet
+      "100.70.211.41" # vault via tailnet
     ];
   };
 
