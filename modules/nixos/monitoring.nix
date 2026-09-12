@@ -217,6 +217,8 @@ in
   # (it's Prometheus-compatible, so the type is "prometheus") — nothing to
   # click through after a rebuild. VictoriaLogs needs its own datasource
   # plugin, which nixpkgs doesn't package; pin it from grafana.com.
+  sops.secrets."grafana/secret_key".owner = "grafana";
+
   services.grafana = {
     enable = true;
     settings.server = {
@@ -224,12 +226,9 @@ in
       http_port = 3000;
     };
     # Key Grafana uses to encrypt secrets in its own database; NixOS 26.05
-    # requires setting one explicitly. Like /etc/restic/password, it lives
-    # outside the repo. Create it once before the first rebuild:
-    #   sudo install -d -m 755 /etc/grafana
-    #   openssl rand -base64 32 | sudo install -m 640 -o root -g grafana /dev/stdin /etc/grafana/secret_key
-    # (If the grafana group doesn't exist yet, rebuild once, then re-run.)
-    settings.security.secret_key = "$__file{/etc/grafana/secret_key}";
+    # requires setting one explicitly. Comes from sops (secrets/donatello.yaml),
+    # decrypted to a grafana-owned file at activation.
+    settings.security.secret_key = "$__file{${config.sops.secrets."grafana/secret_key".path}}";
     declarativePlugins = [
       (pkgs.grafanaPlugins.grafanaPlugin {
         pname = "victoriametrics-logs-datasource";

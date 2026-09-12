@@ -237,12 +237,18 @@ SSH comes in over tailscale: `tailscale0` is a trusted interface in
 is readable by every user and process on the machine, and by anyone with
 the repo. Never put tokens here.
 
-For secrets a *service* needs (restic password, wireguard keys), the
-pattern used here is a root-only file under `/etc` referenced by path, for
-example `passwordFile = "/etc/restic/password"`. When you outgrow that,
-look at `sops-nix` or `agenix`, which encrypt secrets into the repo and
-decrypt at activation. User-level secrets live in a file chezmoi does not
-track (`~/.config/secrets.sh`) that the shell rc sources if present.
+Secrets a *service* needs (restic password, B2 credentials, Grafana's
+secret key) live sops-encrypted in `secrets/<host>.yaml` — safe to publish;
+only the values are ciphertext. `.sops.yaml` says who can decrypt: Jason's
+personal age key (`~/.config/sops/age/keys.txt`, backed up in the password
+manager — the *editing* key) and each host's SSH host key (the *unattended
+decryption* key). At activation, sops-nix (`modules/nixos/secrets.nix`)
+decrypts to `/run/secrets/<name>` (tmpfs, correct owner/mode), and modules
+reference `config.sops.secrets."<name>".path` — never a value. Edit with
+`sops secrets/donatello.yaml`; no passphrase involved.
+
+User-level secrets live in a file chezmoi does not track
+(`~/.config/secrets.sh`) that the shell rc sources if present.
 
 ## Troubleshooting
 

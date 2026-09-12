@@ -1,7 +1,7 @@
 # Snapshots (btrbk) and offsite backups (restic). Your Ubuntu box runs
 # btrbk.timer daily and resticprofile timers; the restic profiles were
 # root-only so they could not be read — fill in the TODOs.
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 {
   # Local btrfs snapshots of / and /home into /.snapshots, daily.
   # Create the directory once: sudo btrfs subvolume create /.snapshots
@@ -23,8 +23,8 @@
 
   # Offsite restic backup of /home, taken from a read-only btrfs snapshot so
   # the copy is consistent even while you're working (what resticprofile did
-  # on Ubuntu). Uncomment once the system is running and you've picked a
-  # repository. Password goes in /etc/restic/password (chmod 600), NOT here.
+  # on Ubuntu). The repo password and B2 credentials come from sops
+  # (secrets/donatello.yaml); edit them with `sops secrets/donatello.yaml`.
   #
   # Paths inside the repo are prefixed /.snapshots/restic-home instead of
   # /home; restore with e.g.
@@ -32,13 +32,15 @@
   #        --include /.snapshots/restic-home/xentac/Documents
   # (`restic-home` is a wrapper the module generates with repo + password set.)
   #
+  # The environment secret is an env-file (B2_ACCOUNT_ID=... / B2_ACCOUNT_KEY=...).
+  sops.secrets."restic/password" = { };
+  sops.secrets."restic/environment" = { };
+
   services.restic.backups.home = {
-    # When a second host joins, switch to one repo per host via sub-paths
-    # ("b2:xentac-backups:restic/${config.networking.hostName}") — see
-    # docs/backups.md for the rationale.
-    repository = "b2:restic-donatello:";
-    passwordFile = "/etc/restic/password";
-    environmentFile = "/etc/restic/environment";
+    # One repo per host via sub-paths — see docs/backups.md for the rationale.
+    repository = "b2:backups-xentac:restic/${config.networking.hostName}/";
+    passwordFile = config.sops.secrets."restic/password".path;
+    environmentFile = config.sops.secrets."restic/environment".path;
     initialize = true; # create the repo on first run if it doesn't exist
 
     # Read-only snapshot at a FIXED path so restic's parent-snapshot
@@ -48,7 +50,16 @@
       ${pkgs.btrfs-progs}/bin/btrfs subvolume delete /.snapshots/restic-home 2>/dev/null || true
       ${pkgs.btrfs-progs}/bin/btrfs subvolume snapshot -r /home /.snapshots/restic-home
     '';
-    paths = [ "/.snapshots/restic-home" ];
+    # /etc is mostly generated from this repo, so backing it up wholesale
+    # would just capture build output. The exceptions are the few imperative
+    # files below: the SSH host keys (also the sops decryption key for this
+    # machine) and NetworkManager's saved connections (WiFi passwords,
+    # imported VPN configs).
+    paths = [
+      "/.snapshots/restic-home"
+      "/etc/ssh"
+      "/etc/NetworkManager/system-connections"
+    ];
     backupCleanupCommand = ''
       ${pkgs.btrfs-progs}/bin/btrfs subvolume delete /.snapshots/restic-home
     '';

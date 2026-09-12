@@ -19,6 +19,11 @@
     # nixos-hardware declares its own nixpkgs (for its CI); point it at ours
     # so flake.lock doesn't carry a second, stale nixpkgs pin.
     nixos-hardware.inputs.nixpkgs.follows = "nixpkgs";
+
+    # Encrypted secrets in git (secrets/*.yaml), decrypted at activation with
+    # each host's SSH key. See modules/nixos/secrets.nix and .sops.yaml.
+    sops-nix.url = "github:Mic92/sops-nix";
+    sops-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
