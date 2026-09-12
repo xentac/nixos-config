@@ -17,5 +17,6 @@
     ./apps.nix
     ./gaming.nix
     ./backups.nix
+    ./monitoring.nix
   ];
 }
