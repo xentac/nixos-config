@@ -152,6 +152,13 @@
             { targets = [ config.services.victoriametrics.listenAddress ]; }
           ];
         }
+        {
+          # Same for VictoriaLogs: log ingest rate, storage, query stats.
+          job_name = "victorialogs";
+          static_configs = [
+            { targets = [ config.services.victorialogs.listenAddress ]; }
+          ];
+        }
       ];
     };
   };
