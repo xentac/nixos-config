@@ -6,7 +6,28 @@
 # Grafana lives at http://localhost:3000 (first login admin/admin, it
 # prompts for a new password). Import dashboard ID 1860 ("Node Exporter
 # Full") for a complete system overview.
-{ config, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  # Smokeping targets, IP -> display name. The IP is what gets pinged;
+  # the name is what the `host` label shows in Grafana (rewritten by the
+  # metric_relabel_configs in the smokeping scrape job below). Raw IPs
+  # rather than DNS/MagicDNS names because the prober resolves names only
+  # once at startup, which would race tailscaled at boot; the original IP
+  # stays available in the `ip` label.
+  smokepingHosts = {
+    "192.168.1.1" = "router"; # local router (WiFi/LAN health, free)
+    "192.168.100.1" = "dishy"; # the Starlink dish (free, doesn't touch the sky)
+    "1.1.1.1" = "cloudflare"; # anycast reference 1 (general reachability)
+    "8.8.8.8" = "google"; # anycast reference 2 (distinguishes provider blips)
+    "100.83.4.27" = "droplet1"; # via tailnet
+    "100.70.211.41" = "vault"; # via tailnet
+  };
+in
 {
   # Exposes kernel/system metrics (CPU, memory, disk, network, temps)
   # on 127.0.0.1:9100.
@@ -55,25 +76,17 @@
   };
 
   # Continuous ICMP latency probes on 127.0.0.1:9374 — the classic
-  # smokeping latency/loss graphs. Targets are layered so problems can be
-  # localized: LAN hop -> dish -> internet (two anycast references) ->
-  # tailnet machines. Data cost on the metered Starlink link: the last
-  # four traverse it, ~4 MB/day total at one ping each per 15s —
-  # negligible even in ocean mode. (The 1s default would be ~15x that.)
-  # Tailnet targets are raw Tailscale IPs, not MagicDNS names: the prober
-  # resolves names only once at startup, which races tailscaled at boot.
+  # smokeping latency/loss graphs. Targets (defined in smokepingHosts at
+  # the top) are layered so problems can be localized: LAN hop -> dish ->
+  # internet (two anycast references) -> tailnet machines. Data cost on
+  # the metered Starlink link: four targets traverse it, ~4 MB/day total
+  # at one ping each per 15s — negligible even in ocean mode. (The 1s
+  # default would be ~15x that.)
   services.prometheus.exporters.smokeping = {
     enable = true;
     listenAddress = "127.0.0.1";
     pingInterval = "15s";
-    hosts = [
-      "192.168.1.1" # local router (WiFi/LAN health, free)
-      "192.168.100.1" # the Starlink dish itself (free, doesn't touch the sky)
-      "1.1.1.1" # Cloudflare anycast (general internet reachability)
-      "8.8.8.8" # Google anycast (second reference: Cloudflare vs internet)
-      "100.83.4.27" # droplet1 via tailnet
-      "100.70.211.41" # vault via tailnet
-    ];
+    hosts = lib.attrNames smokepingHosts;
   };
 
   # Backup metrics (snapshot count, age of newest snapshot, repo size) on
@@ -138,6 +151,13 @@
               ];
             }
           ];
+          # Rewrite the host label from the pinged IP to its display name.
+          metric_relabel_configs = lib.mapAttrsToList (ip: name: {
+            source_labels = [ "host" ];
+            regex = lib.replaceStrings [ "." ] [ "\\." ] ip;
+            target_label = "host";
+            replacement = name;
+          }) smokepingHosts;
         }
         {
           job_name = "restic";
