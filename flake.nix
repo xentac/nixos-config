@@ -21,9 +21,15 @@
     nixos-hardware.inputs.nixpkgs.follows = "nixpkgs";
 
     # Encrypted secrets in git (secrets/*.yaml), decrypted at activation with
-    # each host's SSH key. See modules/nixos/secrets.nix and .sops.yaml.
+    # each host's SSH key. See modules/common/secrets.nix and .sops.yaml.
     sops-nix.url = "github:Mic92/sops-nix";
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
+
+    # Declarative disk partitioning, used by servers installed with
+    # nixos-anywhere (hosts/alba-nix/disko.nix). The laptop predates disko
+    # and keeps its hand-partitioned hardware-configuration.nix.
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
@@ -42,6 +48,16 @@
         # so modules can reference e.g. inputs.nixos-hardware.
         specialArgs = { inherit inputs; };
         modules = [ ./hosts/donatello ];
+      };
+
+      # The boat-services VM on Alba's Proxmox host. Installed remotely with
+      #   nixos-anywhere --flake .#alba-nix root@<installer-ip>
+      # and updated with
+      #   nixos-rebuild switch --flake .#alba-nix --target-host root@alba-nix
+      nixosConfigurations.alba-nix = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        specialArgs = { inherit inputs; };
+        modules = [ ./hosts/alba-nix ];
       };
 
       # `nix fmt` (and `just fmt`) formats the whole tree with nixfmt.
