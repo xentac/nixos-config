@@ -12,11 +12,16 @@
     # the btrfs mount options the generator drops. See docs/install.md.
     ./hardware-configuration.nix
 
-    # All the reusable modules (each one is a small, commented file).
-    ../../modules/nixos
+    # All the reusable modules (each one is a small, commented file):
+    # common = every host, desktop = laptop-shaped machines.
+    ../../modules/common
+    ../../modules/desktop
   ];
 
   networking.hostName = "donatello";
+
+  # Which encrypted file sops.secrets.* names refer to for this host.
+  sops.defaultSopsFile = ../../secrets/donatello.yaml;
 
   # Brand-new silicon wants the newest kernel. nixos-hardware may also set
   # this; `lib.mkForce` isn't needed since we agree.
