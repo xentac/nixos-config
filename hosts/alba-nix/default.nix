@@ -47,6 +47,19 @@
   # with quiesce.
   services.qemuGuest.enable = true;
 
+  # Unlike the laptop (where authorized_keys is chezmoi-managed and the
+  # password is set interactively at the console), a headless server must
+  # bake its access path into the image: with no password, key-only sshd,
+  # and no chezmoi, a fresh install would otherwise be unreachable.
+  # Root access is what `nixos-rebuild --target-host root@alba-nix` and
+  # nixos-anywhere use.
+  users.users.xentac.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMpYxRf08tuKPVgsBua3etm5rOHj/I2XL6g8Gj4Ra3mT xentac@baxter"
+  ];
+  users.users.root.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMpYxRf08tuKPVgsBua3etm5rOHj/I2XL6g8Gj4Ra3mT xentac@baxter"
+  ];
+
   # DO NOT bump this after install. It records which NixOS release first
   # created stateful data (DB formats, etc.) and is not "the version you run".
   system.stateVersion = "26.05";
