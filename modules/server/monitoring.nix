@@ -9,8 +9,94 @@
 # durability (docs/adr/0004).
 #
 # Everything binds localhost; caddy.nix publishes Grafana as the tailnet
-# name "grafana".
-{ config, pkgs, ... }:
+# name "alba-grafana".
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  # nixpkgs stamps buildinfo.Version with the bare version ("1.126.0"),
+  # but upstream release builds use "victoria-metrics-…-tags-v1.126.0".
+  # The stock dashboards' job/version template variables filter on that
+  # prefix (version=~"victoria-metrics-.*"), so with a nixpkgs build
+  # every panel shows No Data. Restamp the upstream format. Tests are
+  # skipped: one asserts buildinfo.Version is unset, and the package's
+  # preCheck workaround only knows the bare-version form.
+  restampVersion =
+    pkg: productPrefix:
+    pkg.overrideAttrs (old: {
+      ldflags = map (
+        f:
+        if lib.hasInfix "buildinfo.Version=" f then
+          "-X github.com/VictoriaMetrics/VictoriaMetrics/lib/buildinfo.Version=${productPrefix}-tags-v${old.version}"
+        else
+          f
+      ) old.ldflags;
+      doCheck = false;
+    });
+
+  # Dashboards from grafana.com, pinned by (id, revision, hash) — the
+  # declarative replacement for importing by hand. Revisions are
+  # immutable, so the fetch is reproducible. Most dashboards pick their
+  # datasource via a template variable (defaulting to the default
+  # datasource); the jq pass hard-wires the ones that instead declare a
+  # `__inputs` placeholder, pointing prometheus-type inputs at our
+  # VictoriaMetrics datasource uid.
+  grafanaDashboard =
+    { id, rev, hash }:
+    pkgs.runCommand "grafana-dashboard-${toString id}-rev${toString rev}.json"
+      {
+        src = pkgs.fetchurl {
+          url = "https://grafana.com/api/dashboards/${toString id}/revisions/${toString rev}/download";
+          inherit hash;
+        };
+        nativeBuildInputs = [ pkgs.jq ];
+      }
+      ''
+        jq 'reduce (.__inputs // [])[] as $i (.;
+              if $i.pluginId == "prometheus"
+              then walk(if . == ("''${" + $i.name + "}") then "victoriametrics" else . end)
+              else . end)
+            | del(.__inputs)' "$src" > "$out"
+      '';
+
+  dashboardsDir = pkgs.linkFarm "grafana-dashboards" [
+    {
+      name = "node-exporter-full.json";
+      path = grafanaDashboard {
+        id = 1860;
+        rev = 45;
+        hash = "sha256-GExrdAnzBtp1Ul13cvcZRbEM6iOtFrXXjEaY6g6lGYY=";
+      };
+    }
+    {
+      name = "victoriametrics-single-node.json";
+      path = grafanaDashboard {
+        id = 10229;
+        rev = 58;
+        hash = "sha256-ohLgCHAdCSV9b3YkRAPPqCGOZaMKg1VzQK9dHlm9HAM=";
+      };
+    }
+    {
+      name = "victorialogs-single-node.json";
+      path = grafanaDashboard {
+        id = 22084;
+        rev = 11;
+        hash = "sha256-XCS5f54tPxc8t9ppEX0ahzw8ufex6K3MIBbDL6tMoIY=";
+      };
+    }
+    {
+      name = "restic-exporter.json";
+      path = grafanaDashboard {
+        id = 17554;
+        rev = 3;
+        hash = "sha256-jMv2ag4DlA4Bx+szNFEVF+WrBipICMx1D9uy/oD5Blw=";
+      };
+    }
+  ];
+in
 {
   # Kernel/system metrics on 127.0.0.1:9100.
   services.prometheus.exporters.node = {
@@ -33,6 +119,7 @@
   # entry pointing at it.
   services.victoriametrics = {
     enable = true;
+    package = restampVersion pkgs.victoriametrics "victoria-metrics";
     listenAddress = "127.0.0.1:8428";
     retentionPeriod = "1y";
     prometheusConfig = {
@@ -77,6 +164,7 @@
   # Log database; journald ships into it below.
   services.victorialogs = {
     enable = true;
+    package = restampVersion pkgs.victorialogs "victoria-logs";
     listenAddress = "127.0.0.1:9428";
     extraOptions = [ "-retentionPeriod=1y" ];
   };
@@ -98,10 +186,10 @@
     settings.server = {
       http_addr = "127.0.0.1";
       http_port = 3000;
-      # Served as http://grafana on the tailnet (caddy.nix); Grafana wants
-      # to know its public name for redirects/cookies.
-      domain = "grafana";
-      root_url = "http://grafana/";
+      # Served via caddy.nix on the tailnet; Grafana wants to know its
+      # public name for redirects/cookies.
+      domain = "alba-grafana.stalk-darter.ts.net";
+      root_url = "https://alba-grafana.stalk-darter.ts.net/";
     };
     settings.security.secret_key = "$__file{${config.sops.secrets."grafana/secret_key".path}}";
     declarativePlugins = [
@@ -111,17 +199,40 @@
         zipHash = "sha256-ggTQl7F/U7HDpxdhBHc0t5gL2YNxDGz8742Tir5e7vA=";
       })
     ];
+    # Datasources are matched by name, but pre-uid records in grafana's DB
+    # carry auto-generated uids, and updating a datasource to a new uid
+    # fails ("data source not found"). Deleting by name first makes each
+    # startup recreate them cleanly with the uids below.
+    provision.datasources.settings.deleteDatasources = [
+      {
+        name = "VictoriaMetrics";
+        orgId = 1;
+      }
+      {
+        name = "VictoriaLogs";
+        orgId = 1;
+      }
+    ];
     provision.datasources.settings.datasources = [
       {
         name = "VictoriaMetrics";
+        # Fixed uid so provisioned dashboards can reference it.
+        uid = "victoriametrics";
         type = "prometheus";
         url = "http://${config.services.victoriametrics.listenAddress}";
         isDefault = true;
       }
       {
         name = "VictoriaLogs";
+        uid = "victorialogs";
         type = "victoriametrics-logs-datasource";
         url = "http://${config.services.victorialogs.listenAddress}";
+      }
+    ];
+    provision.dashboards.settings.providers = [
+      {
+        name = "declarative";
+        options.path = dashboardsDir;
       }
     ];
   };
