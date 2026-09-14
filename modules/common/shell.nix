@@ -9,7 +9,6 @@
   # Unified git+jj prompt module, wired up via [custom.jj] in starship.toml.
   environment.systemPackages = [
     pkgs.jj-starship
-    pkgs.dig
   ];
 
   # Every host needs an editor, including headless servers where root at a

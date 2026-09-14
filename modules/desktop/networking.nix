@@ -21,16 +21,12 @@
   # Samba/Windows shares from Thunar and the CLI. Server side (smbd) is off;
   # enable services.samba if you actually share from this laptop.
   services.gvfs.enable = true; # smb://, sftp://, mtp:// in Thunar
+  # Diagnostic tools (nmap, net-tools, socat, …) come from
+  # modules/common/networking.nix; only laptop-specific extras here.
   environment.systemPackages = with pkgs; [
     cifs-utils
     samba # smbclient
     wireguard-tools # NordVPN: import WG configs into NetworkManager
-    nmap
-    whois
-    socat
     sshfs
-    iftop
-    net-tools
-    inetutils
   ];
 }
