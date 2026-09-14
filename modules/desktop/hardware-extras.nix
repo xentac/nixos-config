@@ -31,13 +31,26 @@
   # Power. nixos-hardware's framework module already enables
   # power-profiles-daemon; don't ALSO enable TLP (they conflict).
   services.power-profiles-daemon.enable = lib.mkDefault true;
-  services.upower.enable = true;
+  # Low battery while in use: upower runs the action itself (no DE needed on
+  # sway). Hibernate at 7% — the default (HybridSleep at 2%) is too late to
+  # write 64G of RAM to disk, which is how the battery-death happened.
+  services.upower = {
+    enable = true;
+    percentageLow = 15;
+    percentageCritical = 10;
+    percentageAction = 7;
+    criticalPowerAction = "Hibernate";
+  };
 
-  # Lid: suspend on battery, ignore when docked (external monitor at the desk).
+  # Lid: suspend-then-hibernate on battery, ignore when docked (external
+  # monitor at the desk). With no HibernateDelaySec set, systemd estimates the
+  # discharge rate during suspend and converts to hibernate before the battery
+  # runs out (AMD is s2idle-only, so closed-lid drain is real).
   services.logind.settings.Login = {
-    HandleLidSwitch = "suspend";
+    HandleLidSwitch = "suspend-then-hibernate";
     HandleLidSwitchDocked = "ignore";
   };
+  systemd.sleep.settings.Sleep.SuspendEstimationSec = "1h";
 
   services.smartd.enable = true;
 
