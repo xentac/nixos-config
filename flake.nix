@@ -30,6 +30,12 @@
     # and keeps its hand-partitioned hardware-configuration.nix.
     disko.url = "github:nix-community/disko";
     disko.inputs.nixpkgs.follows = "nixpkgs";
+
+    # Remote deployment (`just deploy alba-nix`) with magic rollback: if the
+    # new generation breaks SSH, the node reverts on its own — important for
+    # servers we can't easily walk over to.
+    deploy-rs.url = "github:serokell/deploy-rs";
+    deploy-rs.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
@@ -52,13 +58,28 @@
 
       # The boat-services VM on Alba's Proxmox host. Installed remotely with
       #   nixos-anywhere --flake .#alba-nix root@<installer-ip>
-      # and updated with
-      #   nixos-rebuild switch --flake .#alba-nix --target-host root@alba-nix
+      # and updated with `just deploy alba-nix` (deploy-rs, see below).
       nixosConfigurations.alba-nix = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         specialArgs = { inherit inputs; };
         modules = [ ./hosts/alba-nix ];
       };
+
+      # Remote hosts deployed with deploy-rs. Donatello is absent on purpose:
+      # the laptop rebuilds itself locally (`just switch`). One node per
+      # server; a future fleet is more entries here.
+      deploy.nodes.alba-nix = {
+        hostname = "alba-nix";
+        profiles.system = {
+          user = "root";
+          sshUser = "root";
+          path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.alba-nix;
+        };
+      };
+
+      # `nix flake check` verifies every deploy node's config matches its
+      # nixosConfiguration (schema + build), alongside the usual eval checks.
+      checks.x86_64-linux = inputs.deploy-rs.lib.x86_64-linux.deployChecks self.deploy;
 
       # `nix fmt` (and `just fmt`) formats the whole tree with nixfmt.
       formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt-tree;

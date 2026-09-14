@@ -18,6 +18,14 @@ test:
 check:
     nix build .#nixosConfigurations.{{host}}.config.system.build.toplevel --no-link
 
+# Build locally, push to the remote over SSH, auto-rollback if SSH breaks
+deploy target="alba-nix":
+    nix run nixpkgs#deploy-rs -- .#{{target}}
+
+# Like deploy, but the remote only switches to it on its NEXT boot
+deploy-boot target="alba-nix":
+    nix run nixpkgs#deploy-rs -- .#{{target}} --boot
+
 # Move all inputs (nixpkgs, nixos-hardware) to their latest commits
 update:
     nix flake update

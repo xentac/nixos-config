@@ -68,13 +68,17 @@ ssh root@192.168.1.23 "nix-shell -p ssh-to-age --run 'ssh-to-age -i /etc/ssh/ssh
 # add the age1... key to .sops.yaml (alba-nix anchor + rule), then:
 sops updatekeys secrets/alba-nix.yaml
 git commit -am "Add alba-nix sops recipient"
-nixos-rebuild switch --flake .#alba-nix --target-host root@192.168.1.23
+just deploy alba-nix
 ```
 
 First boot checklist: `tailscale up` (the VM's own identity),
 `btrfs subvolume list /` sanity check, confirm `/Videos` lists media.
-(Prefer `nixos-rebuild boot` over `switch` when deploying over a flaky
-link later — boat rule.)
+
+Day-to-day updates are `just deploy alba-nix` (deploy-rs: builds on
+donatello, pushes over SSH, and rolls back automatically if the new
+config kills the connection). Prefer `just deploy-boot alba-nix` over
+a flaky link — it stages the new generation for the next reboot
+instead of switching live. Boat rule.
 
 ## 4. Migrate service state from baxter
 
