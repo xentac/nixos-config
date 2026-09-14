@@ -83,7 +83,8 @@ instead of switching live. Boat rule.
 ## 4. Migrate service state from baxter
 
 Services on baxter stay off (they already are). Sources are the compose
-volumes in `baxter:~/coding/nzb/`; targets are the module state dirs.
+volumes, staged at `root@alba-nix:~/baxter/` (copied from
+`baxter:~/coding/nzb/`); targets are the module state dirs.
 For each: stop the unit, copy, chown, start, click through the UI.
 
 | service  | from (baxter)                  | to               | notes |

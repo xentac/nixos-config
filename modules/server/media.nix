@@ -42,9 +42,9 @@
     settings = {
       misc = {
         host = "::"; # LAN + localhost (caddy); sab has its own auth
-        # Non-local clients get full API but no web UI; the UI is
-        # reached via caddy, whose requests arrive from localhost.
-        inet_exposure = "api (full)";
+        # Non-local clients (LAN, and the tailnet via caddy) get the
+        # API and the web UI, both behind sab's own login.
+        inet_exposure = "api+web (auth needed)";
         url_base = "/sabnzbd"; # the arrs' download-client configs use this path
         # sab's DNS-rebinding protection rejects Host headers that
         # aren't an IP or its own hostname; caddy forwards the tsnet
