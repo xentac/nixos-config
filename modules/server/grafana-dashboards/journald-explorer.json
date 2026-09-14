@@ -1,0 +1,200 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 50,
+            "stacking": { "mode": "normal" }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "editorMode": "code",
+          "expr": "{_HOSTNAME=~\"${hostname:regex}\", _SYSTEMD_UNIT=~\"${unit:regex}\"} level:~\"${level:regex}\" $query | stats by (_SYSTEMD_UNIT) count()",
+          "legendFormat": "{{_SYSTEMD_UNIT}}",
+          "queryType": "statsRange",
+          "refId": "A"
+        }
+      ],
+      "title": "Log rate by unit",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "id": 2,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "right", "showLegend": true },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "editorMode": "code",
+          "expr": "{_HOSTNAME=~\"${hostname:regex}\", _SYSTEMD_UNIT=~\"${unit:regex}\"} level:~\"${level:regex}\" $query | stats by (\"$count_by\") count() c | sort by (c desc) | limit 25",
+          "legendFormat": "{{$count_by}}",
+          "queryType": "stats",
+          "refId": "A"
+        }
+      ],
+      "title": "Count by $count_by",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 8 },
+      "id": 3,
+      "options": {
+        "dedupStrategy": "none",
+        "enableInfiniteScrolling": true,
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "editorMode": "code",
+          "expr": "{_HOSTNAME=~\"${hostname:regex}\", _SYSTEMD_UNIT=~\"${unit:regex}\"} level:~\"${level:regex}\" $query | sort by (_time) desc | limit $limit",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Logs",
+      "type": "logs"
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["journald", "victorialogs"],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+        "includeAll": true,
+        "label": "Host",
+        "multi": true,
+        "name": "hostname",
+        "query": {
+          "field": "_HOSTNAME",
+          "limit": 0,
+          "query": "",
+          "refId": "VictoriaLogsVariableQueryEditor-VariableQuery",
+          "type": "fieldValue"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+        "includeAll": true,
+        "label": "Unit",
+        "multi": true,
+        "name": "unit",
+        "query": {
+          "field": "_SYSTEMD_UNIT",
+          "limit": 0,
+          "query": "{_HOSTNAME=~\"${hostname:regex}\"}",
+          "refId": "VictoriaLogsVariableQueryEditor-VariableQuery",
+          "type": "fieldValue"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+        "includeAll": true,
+        "label": "Level",
+        "multi": true,
+        "name": "level",
+        "query": {
+          "field": "level",
+          "limit": 0,
+          "query": "",
+          "refId": "VictoriaLogsVariableQueryEditor-VariableQuery",
+          "type": "fieldValue"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "label": "LogsQL filter",
+        "name": "query",
+        "options": [],
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": { "selected": true, "text": "level", "value": "level" },
+        "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+        "includeAll": false,
+        "label": "Count by",
+        "name": "count_by",
+        "query": {
+          "field": "",
+          "limit": 50,
+          "query": "{_HOSTNAME=~\"${hostname:regex}\", _SYSTEMD_UNIT=~\"${unit:regex}\"}",
+          "refId": "VictoriaLogsVariableQueryEditor-VariableQuery",
+          "type": "fieldName"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": true, "text": "250", "value": "250" },
+        "includeAll": false,
+        "label": "Limit",
+        "name": "limit",
+        "options": [
+          { "selected": false, "text": "50", "value": "50" },
+          { "selected": false, "text": "100", "value": "100" },
+          { "selected": true, "text": "250", "value": "250" },
+          { "selected": false, "text": "500", "value": "500" },
+          { "selected": false, "text": "1000", "value": "1000" }
+        ],
+        "query": "50,100,250,500,1000",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Journald Explorer",
+  "uid": "journald-explorer",
+  "version": 1
+}

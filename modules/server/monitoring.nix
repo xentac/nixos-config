@@ -91,6 +91,14 @@ let
         hash = "sha256-XCS5f54tPxc8t9ppEX0ahzw8ufex6K3MIBbDL6tMoIY=";
       };
     }
+    # Hand-written (grafana.com has no journald explorer — the official
+    # VictoriaLogs Explorer, id 22759, is Kubernetes-shaped). Filters by
+    # host/unit/level plus a free-form LogsQL box; journald's PRIORITY is
+    # auto-converted to the `level` field on ingestion.
+    {
+      name = "journald-explorer.json";
+      path = ./grafana-dashboards/journald-explorer.json;
+    }
     {
       name = "restic-exporter.json";
       path = grafanaDashboard {
