@@ -31,7 +31,7 @@
     git-lfs
 
     # --- editor / shell
-    neovim
+    # neovim comes from modules/common/shell.nix (programs.neovim)
     tmux
     starship
     fzf

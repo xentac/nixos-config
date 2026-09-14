@@ -12,6 +12,16 @@
     pkgs.dig
   ];
 
+  # Every host needs an editor, including headless servers where root at a
+  # rescue console may be the only login. defaultEditor sets EDITOR/VISUAL
+  # system-wide so sudoedit, systemctl edit, git, etc. pick it up.
+  programs.neovim = {
+    enable = true;
+    defaultEditor = true;
+    viAlias = true;
+    vimAlias = true;
+  };
+
   programs.zsh = {
     enable = true; # registers zsh in /etc/shells; required for shell = pkgs.zsh
     autosuggestions.enable = true; # fish-style grey inline suggestions from history
