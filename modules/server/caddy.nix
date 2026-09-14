@@ -36,8 +36,8 @@ in
   services.caddy = {
     enable = true;
     # Default is `level ERROR`, which swallows all tsnet node
-    # registration/auth output. DEBUG while the tailscale layer is young.
-    logFormat = "level DEBUG";
+    # registration/auth output.
+    logFormat = "level INFO";
     # Caddy with plugins is rebuilt from source with the plugin vendored in;
     # the hash pins the combined go modules. Bump the date-commit
     # pseudo-version to update the plugin (github.com/tailscale/caddy-tailscale).
