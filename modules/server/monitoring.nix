@@ -169,6 +169,18 @@ in
             { targets = [ config.services.victorialogs.listenAddress ]; }
           ];
         }
+        {
+          job_name = "signalk";
+          metrics_path = "/signalk/v1/api/prometheus";
+          scheme = "https";
+          static_configs = [
+            {
+              targets = [
+                "signalk2.stalk-darter.ts.net"
+              ];
+            }
+          ];
+        }
       ];
     };
   };
