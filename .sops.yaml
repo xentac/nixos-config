@@ -11,6 +11,7 @@
 keys:
   - &admin age1t7edkdrvclrdg80enffqxwqde2cacs6d9zrxuyn22ghleksf4slqgkyyh4
   - &donatello age1zc9zgppjymt22ux952kuhuhnk6lspe64awht77tsyq68ztes7ass9r906f
+  - &alba-nix age1khjlhurtjl46fyll8h93fyqnwwp89hdmtjgwljcu5wyh99gfyypqgxvy6x
   # TODO(alba-nix install): after nixos-anywhere finishes, run
   #   ssh root@192.168.1.23 ssh-to-age -i /etc/ssh/ssh_host_ed25519_key.pub
   # then add the result as &alba-nix below, list it in the alba-nix rule,
@@ -27,3 +28,4 @@ creation_rules:
     key_groups:
       - age:
           - *admin
+          - *alba-nix
