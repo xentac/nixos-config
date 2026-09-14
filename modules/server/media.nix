@@ -32,10 +32,109 @@
     enable = true;
     group = "media";
     openFirewall = true; # opens settings.misc.port (8080)
-    # State (incl. sabnzbd.ini with API keys and server passwords) lives in
-    # /var/lib/sabnzbd, migrated from baxter — see docs/alba-nix.md. The
-    # module merges declarative settings into that ini at startup.
+
+    # Fully declarative: at stateVersion 26.05 the module regenerates
+    # /var/lib/sabnzbd/sabnzbd.ini read-only from `settings` on every
+    # start, so this file is the source of truth and web-UI config
+    # changes do NOT survive a restart. Transcribed from baxter's ini
+    # (deliberate non-defaults only); credentials live in the sops
+    # fragment below. Queue/history state stays in /var/lib/sabnzbd.
+    settings = {
+      misc = {
+        host = "::"; # LAN + localhost (caddy); sab has its own auth
+        # Non-local clients get full API but no web UI; the UI is
+        # reached via caddy, whose requests arrive from localhost.
+        inet_exposure = "api (full)";
+        url_base = "/sabnzbd"; # the arrs' download-client configs use this path
+        # sab's DNS-rebinding protection rejects Host headers that
+        # aren't an IP or its own hostname; caddy forwards the tsnet
+        # name verbatim.
+        host_whitelist = "sabnzbd.stalk-darter.ts.net,alba-nix,";
+        bandwidth_max = "60M";
+        bandwidth_perc = 100;
+        cache_limit = "1G";
+        download_dir = "/downloads/incomplete";
+        complete_dir = "/downloads/complete";
+        direct_unpack = true;
+      };
+      # username/password per server come from secretFiles.
+      servers = {
+        "NEWS.USENETSERVER.COM" = {
+          name = "NEWS.USENETSERVER.COM";
+          displayname = "NEWS.USENETSERVER.COM";
+          host = "news.usenetserver.com";
+          connections = 49;
+        };
+        "news.eweka.nl" = {
+          name = "news.eweka.nl";
+          displayname = "news.eweka.nl";
+          host = "news.eweka.nl";
+          connections = 47;
+        };
+        "news.newsdemon.com" = {
+          name = "news.newsdemon.com";
+          displayname = "news.newsdemon.com";
+          host = "news.newsdemon.com";
+          connections = 20;
+          priority = 1;
+        };
+        "eunews.blocknews.net" = {
+          name = "eunews.blocknews.net";
+          displayname = "eunews.blocknews.net";
+          host = "eunews.blocknews.net";
+          connections = 49;
+          priority = 1;
+        };
+      };
+      # priority -100 = "Default" in the UI; the arrs pick their own.
+      categories = {
+        "*" = {
+          name = "*";
+          order = 0;
+          pp = 2;
+          priority = 0;
+        };
+        movies = {
+          name = "movies";
+          order = 1;
+          priority = -100;
+        };
+        tv = {
+          name = "tv";
+          order = 2;
+          priority = -100;
+        };
+        audio = {
+          name = "audio";
+          order = 3;
+          priority = -100;
+        };
+        software = {
+          name = "software";
+          order = 4;
+          priority = -100;
+        };
+        readarr = {
+          name = "readarr";
+          order = 5;
+          priority = -100;
+        };
+        adult = {
+          name = "adult";
+          order = 6;
+          priority = -100;
+        };
+      };
+    };
+
+    # api_key/nzb_key, web login, and per-server credentials: an ini
+    # fragment merged over `settings` at service start (recursive
+    # section merge, secrets win).
+    secretFiles = [ config.sops.secrets."sabnzbd/secrets_ini".path ];
   };
+
+  # preStart (which does the merge) runs as the service user.
+  sops.secrets."sabnzbd/secrets_ini".owner = "sabnzbd";
 
   services.sonarr = {
     enable = true;

@@ -91,7 +91,7 @@ For each: stop the unit, copy, chown, start, click through the UI.
 | sonarr   | `sonarr/config/`               | `/var/lib/sonarr`  | linuxserver layout: sonarr.db + config.xml at top level; keep both. Library path /Videos unchanged. |
 | radarr   | `radarr/config/`               | `/var/lib/radarr`  | same as sonarr |
 | whisparr | `whisparr/config/`             | `/var/lib/whisparr` | hotio layout; library path /adult unchanged |
-| sabnzbd  | `sabnzbd/config/sabnzbd.ini`   | `/var/lib/sabnzbd` | edit download dirs to `/downloads/incomplete` + `/downloads/complete`; the module merges declarative settings on start |
+| sabnzbd  | nothing — config is fully declarative | `/var/lib/sabnzbd` | the module regenerates sabnzbd.ini from `media.nix` settings + the sops credential fragment on every start (web-UI config edits don't persist). Do NOT copy the old ini; it would be overwritten anyway. |
 | stash    | `stash/config/` (root-owned)   | `/var/lib/stash`   | was `/root/.stash` in the container; DB + config.yml. `generated/`+`cache/` can be copied or left to regenerate; metadata dir too. This fixes the root-ownership mess for good. |
 
 `chown -R <svc>:<its-group>` after each copy. The arr root folders and
