@@ -173,6 +173,18 @@ in
           job_name = "signalk";
           metrics_path = "/signalk/v1/api/prometheus";
           scheme = "https";
+          # The exporter emits mostly bare metric names (navigation_*,
+          # sensors_*, environment_*); prefix them at scrape time so the
+          # shared namespace stays legible. Its own signalk_prometheus_
+          # exporter_* meta-metric comes out double-prefixed — harmless.
+          metric_relabel_configs = [
+            {
+              source_labels = [ "__name__" ];
+              regex = "(.*)";
+              target_label = "__name__";
+              replacement = "signalk_$1";
+            }
+          ];
           static_configs = [
             {
               targets = [
