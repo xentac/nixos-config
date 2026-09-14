@@ -45,7 +45,11 @@ let
   # `__inputs` placeholder, pointing prometheus-type inputs at our
   # VictoriaMetrics datasource uid.
   grafanaDashboard =
-    { id, rev, hash }:
+    {
+      id,
+      rev,
+      hash,
+    }:
     pkgs.runCommand "grafana-dashboard-${toString id}-rev${toString rev}.json"
       {
         src = pkgs.fetchurl {
