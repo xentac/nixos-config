@@ -15,6 +15,7 @@
   ...
 }:
 let
+  tailnetDomain = "stalk-darter.ts.net";
   # tailnet-name -> backend. All local today; "host:port" works for
   # cross-host backends too.
   published = {
@@ -59,10 +60,14 @@ in
     '';
 
     # One virtual host per published name, listening on its tsnet node.
-    # Plain HTTP: traffic only ever crosses the tailnet (wireguard), and
-    # skipping TLS keeps the tsnet nodes free of cert plumbing for now.
+    # The full ts.net site address does double duty: it matches the Host
+    # header clients actually send (a bare "radarr" address would not),
+    # and it makes Caddy fetch the node's HTTPS cert from Tailscale
+    # automatically. http:// requests get Caddy's standard redirect to
+    # https. Requires MagicDNS + HTTPS Certificates enabled on the
+    # tailnet (they are).
     virtualHosts = lib.mapAttrs' (name: backend: {
-      name = "http://${name}";
+      name = "https://${name}.${tailnetDomain}";
       value = {
         extraConfig = ''
           bind tailscale/${name}
