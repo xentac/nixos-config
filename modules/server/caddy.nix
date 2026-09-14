@@ -40,15 +40,21 @@ in
     # Caddy with plugins is rebuilt from source with the plugin vendored in;
     # the hash pins the combined go modules. Bump the date-commit
     # pseudo-version to update the plugin (github.com/tailscale/caddy-tailscale).
+    # Must be >= 2025-11-17 (PR #116): older plugin builds vendor a tsnet
+    # that can't exchange OAuth client secrets for auth keys ("invalid
+    # key: unable to validate API key").
     package = pkgs.caddy.withPlugins {
-      plugins = [ "github.com/tailscale/caddy-tailscale@v0.0.0-20250207163903-69a970c84556" ];
-      hash = "sha256-2EOTu6CIRykdg4SsTsBtHx3/aNrRLQG9O9UHK4plsaI=";
+      plugins = [ "github.com/tailscale/caddy-tailscale@v0.0.0-20260826180304-de41b249af4f" ];
+      hash = "sha256-IzLM8Qgxurrgs6NBygGEGyzXQUxQMPP3Y6iIWVN5ZvQ=";
     };
 
     globalConfig = ''
       tailscale {
         auth_key {env.TS_AUTHKEY}
         state_dir /var/lib/caddy/tailscale
+        # OAuth-registered nodes must advertise the tag(s) the OAuth
+        # client was created with.
+        tags tag:caddy
       }
     '';
 
