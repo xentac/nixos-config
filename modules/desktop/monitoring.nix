@@ -38,11 +38,14 @@ in
   };
 
   # SMART health for the NVMe drive (temperature, wear, error counts) on
-  # 127.0.0.1:9633. Autodiscovers disks; runs with just enough capabilities
-  # to talk to the device.
+  # 127.0.0.1:9633. Pinned to the internal drive: autodiscovery also finds
+  # the Framework 1TB Expansion Card, whose ASMedia USB bridge chokes on
+  # the SMART passthrough command — every 60s poll triggered a UAS reset
+  # until the card wedged and fell off the bus.
   services.prometheus.exporters.smartctl = {
     enable = true;
     listenAddress = "127.0.0.1";
+    devices = [ "/dev/nvme0" ];
   };
 
   # Power metrics. Scaphandre (per-process watts) is marked broken in

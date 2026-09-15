@@ -52,7 +52,14 @@
   };
   systemd.sleep.settings.Sleep.SuspendEstimationSec = "1h";
 
-  services.smartd.enable = true;
+  # Monitor only the internal drive: DEVICESCAN would also pick up the
+  # Framework 1TB Expansion Card, whose ASMedia USB bridge can't handle
+  # SMART passthrough (see monitoring.nix — same exclusion, worse cadence).
+  services.smartd = {
+    enable = true;
+    autodetect = false;
+    devices = [ { device = "/dev/nvme0"; } ];
+  };
 
   environment.systemPackages = with pkgs; [
     yubikey-manager
