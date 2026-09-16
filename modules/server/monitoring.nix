@@ -17,6 +17,20 @@
   ...
 }:
 let
+  # Smokeping targets, IP -> display name; same layering idea as the
+  # laptop's list (modules/desktop/monitoring.nix): LAN hop -> NAS ->
+  # dish -> internet -> tailnet, so a problem can be localized. Raw IPs
+  # because the prober resolves names only once at startup, which would
+  # race tailscaled at boot; the original IP stays in the `ip` label.
+  smokepingHosts = {
+    "192.168.1.1" = "router"; # boat router (LAN health, free)
+    "192.168.1.223" = "vault"; # the NAS the SMB mounts depend on (free)
+    "192.168.100.1" = "dishy"; # the Starlink dish (free, doesn't touch the sky)
+    "1.1.1.1" = "cloudflare"; # anycast reference 1 (general reachability)
+    "8.8.8.8" = "google"; # anycast reference 2 (distinguishes provider blips)
+    "100.83.4.27" = "droplet1"; # tailnet path over the uplink
+  };
+
   # nixpkgs stamps buildinfo.Version with the bare version ("1.126.0"),
   # but upstream release builds use "victoria-metrics-…-tags-v1.126.0".
   # The stock dashboards' job/version template variables filter on that
@@ -100,6 +114,14 @@ let
       path = ./grafana-dashboards/journald-explorer.json;
     }
     {
+      name = "smokeping.json";
+      path = grafanaDashboard {
+        id = 11335;
+        rev = 1;
+        hash = "sha256-aP+NTBX6NO1NjSoNEgOp/OBfdGeEIROPxCHv/xOHUFQ=";
+      };
+    }
+    {
       name = "restic-exporter.json";
       path = grafanaDashboard {
         id = 17554;
@@ -115,6 +137,27 @@ in
     enable = true;
     listenAddress = "127.0.0.1";
     enabledCollectors = [ "systemd" ]; # per-unit metrics: failed services etc.
+  };
+
+  # Continuous ICMP latency probes on 127.0.0.1:9374 — the classic
+  # smokeping latency/loss graphs. Targets are defined in smokepingHosts
+  # at the top. Data cost on the metered Starlink link: three targets
+  # traverse it, ~3 MB/day total at one ping each per 15s — negligible
+  # even in ocean mode.
+  services.prometheus.exporters.smokeping = {
+    enable = true;
+    listenAddress = "127.0.0.1";
+    pingInterval = "15s";
+    hosts = lib.attrNames smokepingHosts;
+  };
+
+  # A pinger whose FIRST send fails exits permanently while the exporter
+  # process stays alive, so a boot-time race against the network silently
+  # kills probing of most targets until the next restart. Hold the unit
+  # until the network is actually up.
+  systemd.services.prometheus-smokeping-exporter = {
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
   };
 
   # Backup metrics (snapshot count, age of newest snapshot, repo size) —
@@ -146,6 +189,23 @@ in
               ];
             }
           ];
+        }
+        {
+          job_name = "smokeping";
+          static_configs = [
+            {
+              targets = [
+                "127.0.0.1:${toString config.services.prometheus.exporters.smokeping.port}"
+              ];
+            }
+          ];
+          # Rewrite the host label from the pinged IP to its display name.
+          metric_relabel_configs = lib.mapAttrsToList (ip: name: {
+            source_labels = [ "host" ];
+            regex = lib.replaceStrings [ "." ] [ "\\." ] ip;
+            target_label = "host";
+            replacement = name;
+          }) smokepingHosts;
         }
         {
           job_name = "restic";
