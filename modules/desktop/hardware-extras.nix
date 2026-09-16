@@ -42,6 +42,21 @@
     criticalPowerAction = "Hibernate";
   };
 
+  # Turn upower's warning levels into mako notifications (upower only *acts*
+  # at percentageAction; nothing else surfaces low/critical on sway). -s skips
+  # the event flood at startup, -S limits it to battery/line power so
+  # peripheral batteries don't nag.
+  systemd.user.services.poweralertd = {
+    description = "UPower-based battery notifications";
+    wantedBy = [ "graphical-session.target" ];
+    partOf = [ "graphical-session.target" ];
+    after = [ "graphical-session.target" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.poweralertd}/bin/poweralertd -s -S";
+      Restart = "on-failure";
+    };
+  };
+
   # Lid: suspend-then-hibernate on battery, ignore when docked (external
   # monitor at the desk). With no HibernateDelaySec set, systemd estimates the
   # discharge rate during suspend and converts to hibernate before the battery
