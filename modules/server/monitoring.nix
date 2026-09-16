@@ -56,13 +56,18 @@ let
   # immutable, so the fetch is reproducible. Most dashboards pick their
   # datasource via a template variable (defaulting to the default
   # datasource); the jq pass hard-wires the ones that instead declare a
-  # `__inputs` placeholder, pointing prometheus-type inputs at our
-  # VictoriaMetrics datasource uid.
+  # `__inputs` placeholder: prometheus-type inputs point at our
+  # VictoriaMetrics datasource uid, and constant inputs get their
+  # declared default (normally filled in by the manual import wizard,
+  # which provisioning bypasses). `replace` is for patching author
+  # mistakes: literal string substitutions applied inside every string
+  # value of the dashboard JSON.
   grafanaDashboard =
     {
       id,
       rev,
       hash,
+      replace ? { },
     }:
     pkgs.runCommand "grafana-dashboard-${toString id}-rev${toString rev}.json"
       {
@@ -76,8 +81,18 @@ let
         jq 'reduce (.__inputs // [])[] as $i (.;
               if $i.pluginId == "prometheus"
               then walk(if . == ("''${" + $i.name + "}") then "victoriametrics" else . end)
+              elif $i.type == "constant"
+              then walk(if . == ("''${" + $i.name + "}") then $i.value else . end)
               else . end)
-            | del(.__inputs)' "$src" > "$out"
+            | del(.__inputs)
+            ${
+              lib.concatStrings (
+                lib.mapAttrsToList (
+                  from: to:
+                  "| walk(if type == \"string\" then (split(${builtins.toJSON from}) | join(${builtins.toJSON to})) else . end)"
+                ) replace
+              )
+            }' "$src" > "$out"
       '';
 
   dashboardsDir = pkgs.linkFarm "grafana-dashboards" [
@@ -113,12 +128,22 @@ let
       name = "journald-explorer.json";
       path = ./grafana-dashboards/journald-explorer.json;
     }
+    # Richest of the smokeping_prober dashboards on grafana.com: status
+    # history, loss, jitter, TTL, response-time heatmap, per (hostname,
+    # ip) target pair. Its two jitter queries hardcode the author's own
+    # target instead of the dashboard's template variables (upstream bug,
+    # panels "Today's Jittering" and "Avg. Response Time"); rewrite them
+    # to the same templated selector every other panel uses.
     {
       name = "smokeping.json";
       path = grafanaDashboard {
-        id = 11335;
+        id = 22471;
         rev = 1;
-        hash = "sha256-aP+NTBX6NO1NjSoNEgOp/OBfdGeEIROPxCHv/xOHUFQ=";
+        hash = "sha256-LeUnVjQpFO8uEttnPpZSazhJtJRXsrHG/1pPKKib48I=";
+        replace = {
+          "host=\"home.havlas.me\",ip=\"2a0c:c500:a828::3c\",job=\"smokeping\"" =
+            "host=\"\${hostname:raw}\",ip=\"\${host:raw}\",job=\"$job\"";
+        };
       };
     }
     {
