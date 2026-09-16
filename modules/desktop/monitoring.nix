@@ -92,6 +92,15 @@ in
     hosts = lib.attrNames smokepingHosts;
   };
 
+  # A pinger whose FIRST send fails exits permanently while the exporter
+  # process stays alive, so a boot-time race against WiFi silently kills
+  # probing of most targets until the next restart. Hold the unit until
+  # the network is actually up.
+  systemd.services.prometheus-smokeping-exporter = {
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+  };
+
   # Backup metrics (snapshot count, age of newest snapshot, repo size) on
   # 127.0.0.1:9753 — good for alerting on "backups silently stopped".
   # Reuses the repo/credentials from backups.nix. Each refresh talks to B2
