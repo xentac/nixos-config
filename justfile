@@ -18,6 +18,21 @@ test:
 check:
     nix build .#nixosConfigurations.{{host}}.config.system.build.toplevel --no-link
 
+# For a remote target the running generation's store path comes over
+# SSH; its closure is normally already in the local store because
+# deploys build here. (just shows the last comment line in --list:)
+# Diff the target's running generation against a fresh build of the config
+diff target=host:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    new=$(nix build .#nixosConfigurations.{{target}}.config.system.build.toplevel --no-link --print-out-paths)
+    if [ "{{target}}" = "$(hostname)" ]; then
+        current=/run/current-system
+    else
+        current=$(ssh root@{{target}} readlink -f /run/current-system)
+    fi
+    nix run nixpkgs#nvd -- diff "$current" "$new"
+
 # Build locally, push to the remote over SSH, auto-rollback if SSH breaks
 deploy target="alba-nix":
     nix run nixpkgs#deploy-rs -- .#{{target}}
