@@ -204,6 +204,12 @@
     #   nix run nixpkgs#whois -- mkpasswd -m bcrypt
     username = "xentac";
     passwordFile = config.sops.secrets."stash/password".path;
+    # Default (true) means config.yml is generated ONCE and settings +
+    # secrets are ignored forever after — a rotated password never takes
+    # effect. false = regenerate each start, same declarative-with-drift
+    # deal as sab: UI config edits are temporary, journaled by
+    # config-history.nix, and get folded back into `settings` here.
+    mutableSettings = false;
     jwtSecretKeyFile = config.sops.secrets."stash/jwt_secret".path;
     sessionStoreKeyFile = config.sops.secrets."stash/session_key".path;
     settings = {

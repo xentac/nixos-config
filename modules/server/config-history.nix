@@ -27,6 +27,10 @@ let
     sonarr = "/var/lib/sonarr/.config/NzbDrone/config.xml";
     radarr = "/var/lib/radarr/.config/Radarr/config.xml";
     whisparr = "/var/lib/whisparr/.config/Whisparr/config.xml";
+    # regenerated each start from `settings` (mutableSettings = false),
+    # so UI edits only survive here until the next restart — the journal
+    # is what makes them recoverable.
+    stash = "/var/lib/stash/config.yml";
   };
 
   commit = pkgs.writeShellApplication {
