@@ -196,6 +196,12 @@
     group = "adult";
     # Built-in auth is mandatory here (kid-proofing layer 4): username +
     # password required even on the tailnet.
+    #
+    # stash/password must hold a BCRYPT HASH, not the password: the module
+    # copies the file into config.yml's `password` field verbatim, and
+    # stash strictly bcrypt-compares login attempts against that field —
+    # a plaintext value can never match (every login 401s). Generate with:
+    #   nix run nixpkgs#whois -- mkpasswd -m bcrypt
     username = "xentac";
     passwordFile = config.sops.secrets."stash/password".path;
     jwtSecretKeyFile = config.sops.secrets."stash/jwt_secret".path;
