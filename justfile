@@ -41,6 +41,10 @@ deploy target="alba-nix":
 deploy-boot target="alba-nix":
     nix run nixpkgs#deploy-rs -- .#{{target}} --boot
 
+# UI-made service config edits on the target since its last rebuild/restart
+drift-config target="alba-nix" *svcs="":
+    ssh root@{{target}} config-drift {{svcs}}
+
 # Move all inputs (nixpkgs, nixos-hardware) to their latest commits
 update:
     nix flake update

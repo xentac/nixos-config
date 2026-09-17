@@ -2,6 +2,7 @@
 {
   imports = [
     ./media.nix
+    ./config-history.nix
     ./mounts.nix
     ./caddy.nix
     ./monitoring.nix

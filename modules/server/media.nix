@@ -33,12 +33,17 @@
     group = "media";
     openFirewall = true; # opens settings.misc.port (8080)
 
-    # Fully declarative: at stateVersion 26.05 the module regenerates
-    # /var/lib/sabnzbd/sabnzbd.ini read-only from `settings` on every
-    # start, so this file is the source of truth and web-UI config
-    # changes do NOT survive a restart. Transcribed from baxter's ini
-    # (deliberate non-defaults only); credentials live in the sops
-    # fragment below. Queue/history state stays in /var/lib/sabnzbd.
+    # Declarative-with-drift: on every start the module merges layers
+    # (on-disk ini < `settings` < sops secrets) and rewrites the ini, so
+    # every key declared here still wins after a restart. The file stays
+    # writable in between (without this, sab retries its periodic
+    # config save forever, spamming "Cannot write to INI file"). UI
+    # edits to UNdeclared keys persist and are journaled by
+    # config-history.nix; `config-drift sabnzbd` shows what to fold back
+    # into `settings`. Transcribed from baxter's ini (deliberate
+    # non-defaults only); credentials live in the sops fragment below.
+    # Queue/history state stays in /var/lib/sabnzbd.
+    allowConfigWrite = true;
     settings = {
       misc = {
         host = "::"; # LAN + localhost (caddy); sab has its own auth
