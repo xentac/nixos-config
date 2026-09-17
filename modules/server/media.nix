@@ -61,6 +61,10 @@
         download_dir = "/downloads/incomplete";
         complete_dir = "/downloads/complete";
         direct_unpack = true;
+        # unrar extracts files 0600 regardless of umask; without this the
+        # arrs (same group, different user) can't import completed jobs.
+        # sab chmods finished jobs: dirs 775, files 775 & 666 = 664.
+        permissions = "775";
       };
       # username/password per server come from secretFiles.
       servers = {
