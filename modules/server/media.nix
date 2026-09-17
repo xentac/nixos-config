@@ -14,7 +14,12 @@
 # annexes new arrivals (docs/adr/0002). Web exposure is caddy.nix's job:
 # everything here binds localhost and is published under a tailnet name;
 # stash and whisparr are tailnet-ONLY (kid-proofing).
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 {
   users.groups.media = { };
   users.groups.adult = { };
@@ -184,6 +189,10 @@
 
   services.stash = {
     enable = true;
+    # baxter's stash DB is schema 85 (stash 0.31.x); nixpkgs is stuck on
+    # 0.29.1 (schema 72) and stash can't downgrade. Vendored bump — see
+    # pkgs/stash/package.nix for when it can be dropped.
+    package = pkgs.callPackage ../../pkgs/stash/package.nix { };
     group = "adult";
     # Built-in auth is mandatory here (kid-proofing layer 4): username +
     # password required even on the tailnet.
