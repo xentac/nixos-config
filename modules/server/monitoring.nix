@@ -31,6 +31,47 @@ let
     "100.83.4.27" = "droplet1"; # tailnet path over the uplink
   };
 
+  # SNMP modules polled from vault, all straight out of snmp_exporter's
+  # shipped snmp.yml (docs/vault-monitoring.md): `synology` covers the
+  # SYNOLOGY-* MIBs including the per-drive SMART table; the rest are the
+  # generic host/interface modules dashboard 14284 graphs. One scrape
+  # walks them all (repeated ?module= params, supported since 0.23).
+  snmpModules = [
+    "synology" # disks, SMART, RAID, services, fans/PSU, DSM upgrade flag
+    "if_mib" # network interfaces
+    "hrStorage" # volume + memory usage
+    "hrSystem" # process count
+    "system" # sysUpTime
+    "ucd_la_table" # load average
+    "ucd_memory" # memory detail
+    "ucd_system_stats" # CPU
+  ];
+
+  # The exporter's shipped config filtered down to snmpModules, plus a v3
+  # auth block for vault's SNMP user. Credentials are $VAR placeholders
+  # expanded at service start from the sops env file (the exporter only
+  # env-expands auth fields, so module bodies can't be mangled; a missing
+  # variable is a hard startup error, not an empty credential).
+  snmpConfigFile =
+    pkgs.runCommand "snmp-vault.yml"
+      {
+        nativeBuildInputs = [ pkgs.yq-go ];
+      }
+      ''
+        yq '{
+          "auths": {
+            "vault": {
+              "version": 3,
+              "security_level": "authNoPriv",
+              "auth_protocol": "SHA",
+              "username": "$SNMP_USER",
+              "password": "$SNMP_AUTH_PASSWORD"
+            }
+          },
+          "modules": .modules | pick(${builtins.toJSON snmpModules})
+        }' ${pkgs.prometheus-snmp-exporter.src}/snmp.yml > $out
+      '';
+
   # nixpkgs stamps buildinfo.Version with the bare version ("1.126.0"),
   # but upstream release builds use "victoria-metrics-…-tags-v1.126.0".
   # The stock dashboards' job/version template variables filter on that
@@ -173,6 +214,23 @@ let
         replace."000000001" = "victoriametrics";
       };
     }
+    # Built against snmp_exporter's default synology config — exactly what
+    # the snmp-vault job scrapes. Its "Synology's Down" stat compares
+    # count(systemStatus) against the author's constant NASDevices=4
+    # (normally edited during the import wizard); rewrite its two
+    # expressions to expect our single NAS.
+    {
+      name = "synology.json";
+      path = grafanaDashboard {
+        id = 14284;
+        rev = 10;
+        hash = "sha256-6yeoeOYM0QgFp4yhZLKqubUhi80ZPJSeyKoq3FkpIGE=";
+        replace = {
+          "$NASDevices-count(systemStatus)" = "1-count(systemStatus)";
+          "count(systemStatus)-$NASDevices" = "count(systemStatus)-1";
+        };
+      };
+    }
     # Pinned to rev 2, not the latest rev 3: rev 3 graphs metrics that only
     # exist in restic-exporter >= 2.0 (restic_size_total, compression ratio,
     # files new/changed, ...) while nixpkgs still packages 1.7.0, leaving
@@ -240,6 +298,26 @@ in
     ];
   };
 
+  # SNMP proxy-exporter on 127.0.0.1:9116 — polls vault (the Synology NAS)
+  # over SNMPv3 on demand, per docs/vault-monitoring.md. Nothing installed
+  # on the NAS beyond enabling its SNMP service.
+  services.prometheus.exporters.snmp = {
+    enable = true;
+    listenAddress = "127.0.0.1";
+    configurationPath = snmpConfigFile;
+    environmentFile = config.sops.secrets."snmp/environment".path;
+  };
+
+  # Env file consumed by snmpConfigFile's placeholders, two lines:
+  #   SNMP_USER=<DSM SNMPv3 username>
+  #   SNMP_AUTH_PASSWORD=<DSM SNMPv3 auth password (SHA, no privacy)>
+  # Read by systemd as root when spawning the service, so default root
+  # ownership is fine. restartUnits because nothing else ties the secret's
+  # content to the unit: without it a credential change deploys but the
+  # exporter keeps running with the old env until something else restarts
+  # it.
+  sops.secrets."snmp/environment".restartUnits = [ "prometheus-snmp-exporter.service" ];
+
   # The same api_key that lives inside sabnzbd/secrets_ini (media.nix),
   # duplicated as a bare value because the exporter wants a file holding
   # only the key — rotate both together. Read by systemd (LoadCredential)
@@ -300,6 +378,37 @@ in
               targets = [
                 "127.0.0.1:${toString config.services.prometheus.exporters.sabnzbd.port}"
               ];
+            }
+          ];
+        }
+        {
+          # SNMP scrapes are proxied: the target is a URL param and the
+          # actual connection goes to the local exporter, which walks vault
+          # live on every scrape. The full walk (SMART table included) takes
+          # seconds on a NAS, so poll gently and allow it to run long.
+          job_name = "snmp-vault";
+          metrics_path = "/snmp";
+          scrape_interval = "1m";
+          scrape_timeout = "50s";
+          params = {
+            auth = [ "vault" ];
+            module = snmpModules;
+          };
+          static_configs = [
+            { targets = [ "192.168.1.223" ]; }
+          ];
+          relabel_configs = [
+            {
+              source_labels = [ "__address__" ];
+              target_label = "__param_target";
+            }
+            {
+              target_label = "instance";
+              replacement = "vault";
+            }
+            {
+              target_label = "__address__";
+              replacement = "127.0.0.1:${toString config.services.prometheus.exporters.snmp.port}";
             }
           ];
         }
