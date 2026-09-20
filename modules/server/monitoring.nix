@@ -173,12 +173,17 @@ let
         replace."000000001" = "victoriametrics";
       };
     }
+    # Pinned to rev 2, not the latest rev 3: rev 3 graphs metrics that only
+    # exist in restic-exporter >= 2.0 (restic_size_total, compression ratio,
+    # files new/changed, ...) while nixpkgs still packages 1.7.0, leaving
+    # half the dashboard permanently "No data". Rev 2 uses exactly the 1.7.0
+    # metric set. Bump back to rev 3 when the nixpkgs exporter reaches 2.x.
     {
       name = "restic-exporter.json";
       path = grafanaDashboard {
         id = 17554;
-        rev = 3;
-        hash = "sha256-jMv2ag4DlA4Bx+szNFEVF+WrBipICMx1D9uy/oD5Blw=";
+        rev = 2;
+        hash = "sha256-5JwafWrhvfy73p6be2pWpvunMsMIDcFDjhDPlrlmsPw=";
       };
     }
   ];
