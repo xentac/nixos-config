@@ -8,7 +8,8 @@
 #   3. sway itself (your chezmoi sway config: `xkb_layout custom`)
 { ... }:
 {
-  time.timeZone = "America/Los_Angeles";
+  #time.timeZone = "America/Los_Angeles";
+  time.timeZone = "Europe/Dublin";
   i18n.defaultLocale = "en_US.UTF-8";
 
   console = {
