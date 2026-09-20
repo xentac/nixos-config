@@ -5,7 +5,8 @@
 #
 # Grafana lives at http://localhost:3000 (first login admin/admin, it
 # prompts for a new password). Import dashboard ID 1860 ("Node Exporter
-# Full") for a complete system overview.
+# Full") for a complete system overview; battery/power and restic
+# dashboards are provisioned declaratively (dashboardsDir below).
 {
   config,
   lib,
@@ -27,6 +28,169 @@ let
     "100.83.4.27" = "droplet1"; # via tailnet
     "100.70.211.41" = "vault"; # via tailnet
   };
+
+  # nixpkgs stamps buildinfo.Version with the bare version ("1.126.0"),
+  # but upstream release builds use "victoria-metrics-…-tags-v1.126.0".
+  # The stock dashboards' job/version template variables filter on that
+  # prefix (version=~"victoria-metrics-.*"), so with a nixpkgs build
+  # every panel shows No Data. Restamp the upstream format. Tests are
+  # skipped: one asserts buildinfo.Version is unset, and the package's
+  # preCheck workaround only knows the bare-version form. (Same fix as
+  # modules/server/monitoring.nix.)
+  restampVersion =
+    pkg: productPrefix:
+    pkg.overrideAttrs (old: {
+      ldflags = map (
+        f:
+        if lib.hasInfix "buildinfo.Version=" f then
+          "-X github.com/VictoriaMetrics/VictoriaMetrics/lib/buildinfo.Version=${productPrefix}-tags-v${old.version}"
+        else
+          f
+      ) old.ldflags;
+      doCheck = false;
+    });
+
+  # Dashboards pinned by hash — the declarative replacement for importing
+  # by hand. Same helpers as modules/server/monitoring.nix (donatello is
+  # deliberately self-contained, so the code is duplicated rather than
+  # shared). patchDashboard resolves a downloaded dashboard's `__inputs`
+  # placeholders: prometheus-type inputs point at our VictoriaMetrics
+  # datasource uid, constant inputs get their declared default. `replace`
+  # is for patching author mistakes: literal string substitutions applied
+  # inside every string value of the dashboard JSON.
+  patchDashboard =
+    name:
+    {
+      src,
+      replace ? { },
+    }:
+    pkgs.runCommand name
+      {
+        inherit src;
+        nativeBuildInputs = [ pkgs.jq ];
+      }
+      ''
+        jq 'reduce (.__inputs // [])[] as $i (.;
+              if $i.pluginId == "prometheus"
+              then walk(if . == ("''${" + $i.name + "}") then "victoriametrics" else . end)
+              elif $i.type == "constant"
+              then walk(if . == ("''${" + $i.name + "}") then $i.value else . end)
+              else . end)
+            | del(.__inputs)
+            ${
+              lib.concatStrings (
+                lib.mapAttrsToList (
+                  from: to:
+                  "| walk(if type == \"string\" then (split(${builtins.toJSON from}) | join(${builtins.toJSON to})) else . end)"
+                ) replace
+              )
+            }' "$src" > "$out"
+      '';
+
+  grafanaDashboard =
+    {
+      id,
+      rev,
+      hash,
+      replace ? { },
+    }:
+    patchDashboard "grafana-dashboard-${toString id}-rev${toString rev}.json" {
+      src = pkgs.fetchurl {
+        url = "https://grafana.com/api/dashboards/${toString id}/revisions/${toString rev}/download";
+        inherit hash;
+      };
+      inherit replace;
+    };
+
+  dashboardsDir = pkgs.linkFarm "grafana-dashboards" [
+    # The same dashboard set as modules/server/monitoring.nix minus the
+    # server-only sabnzbd one — donatello runs the same stack (node
+    # exporter, smokeping, VictoriaMetrics/Logs, restic), and these were
+    # previously imported by hand. Provisioning a dashboard with the same
+    # dashboard uid replaces the hand-imported DB copy, which is also what
+    # repairs their baked-in references to the pre-migration datasource
+    # uids.
+    {
+      name = "node-exporter-full.json";
+      path = grafanaDashboard {
+        id = 1860;
+        rev = 45;
+        hash = "sha256-GExrdAnzBtp1Ul13cvcZRbEM6iOtFrXXjEaY6g6lGYY=";
+      };
+    }
+    # SMART health for the NVMe drive (smartctl exporter below; desktop-
+    # only, the server has no smartctl exporter). Two panels pair a
+    # SATA-attribute query with an NVMe query; only the NVMe half returns
+    # data here, which is expected.
+    {
+      name = "smartctl.json";
+      path = grafanaDashboard {
+        id = 22604;
+        rev = 3;
+        hash = "sha256-gpm/4rzcNv6br8L8cs9O6iWEScojfImWUi1uRXW8UpM=";
+      };
+    }
+    {
+      name = "victoriametrics-single-node.json";
+      path = grafanaDashboard {
+        id = 10229;
+        rev = 58;
+        hash = "sha256-ohLgCHAdCSV9b3YkRAPPqCGOZaMKg1VzQK9dHlm9HAM=";
+      };
+    }
+    {
+      name = "victorialogs-single-node.json";
+      path = grafanaDashboard {
+        id = 22084;
+        rev = 11;
+        hash = "sha256-XCS5f54tPxc8t9ppEX0ahzw8ufex6K3MIBbDL6tMoIY=";
+      };
+    }
+    # Hand-written journald explorer, shared with the server (it's the
+    # same VictoriaLogs setup on both).
+    {
+      name = "journald-explorer.json";
+      path = ../server/grafana-dashboards/journald-explorer.json;
+    }
+    # Same upstream-bug patch as the server: the two jitter queries
+    # hardcode the author's own target instead of the dashboard's
+    # template variables; rewrite them to the templated selector every
+    # other panel uses.
+    {
+      name = "smokeping.json";
+      path = grafanaDashboard {
+        id = 22471;
+        rev = 1;
+        hash = "sha256-LeUnVjQpFO8uEttnPpZSazhJtJRXsrHG/1pPKKib48I=";
+        replace = {
+          "host=\"home.havlas.me\",ip=\"2a0c:c500:a828::3c\",job=\"smokeping\"" =
+            "host=\"\${hostname:raw}\",ip=\"\${host:raw}\",job=\"$job\"";
+        };
+      };
+    }
+    # Hand-written battery/power dashboard: charge, watts in/out vs CPU
+    # package power (RAPL), AC state, long-term battery health. Built on
+    # node_exporter's powersupplyclass + rapl collectors (see the power
+    # metrics section below).
+    {
+      name = "battery.json";
+      path = ./grafana-dashboards/battery.json;
+    }
+    # Companion dashboard to the restic exporter. Pinned to rev 2, not the
+    # latest rev 3: rev 3 graphs metrics that only exist in restic-exporter
+    # >= 2.0 (restic_size_total, compression ratio, files new/changed, ...)
+    # while nixpkgs still packages 1.7.0, leaving half the dashboard
+    # permanently "No data". Rev 2 uses exactly the 1.7.0 metric set. Bump
+    # back to rev 3 when the nixpkgs exporter reaches 2.x.
+    {
+      name = "restic-exporter.json";
+      path = grafanaDashboard {
+        id = 17554;
+        rev = 2;
+        hash = "sha256-5JwafWrhvfy73p6be2pWpvunMsMIDcFDjhDPlrlmsPw=";
+      };
+    }
+  ];
 in
 {
   # Exposes kernel/system metrics (CPU, memory, disk, network, temps)
@@ -117,6 +281,7 @@ in
   # when adding a new exporter, add a scrape_configs entry pointing at it.
   services.victoriametrics = {
     enable = true;
+    package = restampVersion pkgs.victoriametrics "victoria-metrics";
     listenAddress = "127.0.0.1:8428";
     retentionPeriod = "1y";
     prometheusConfig = {
@@ -204,6 +369,7 @@ in
   # graphable in Grafana next to the metrics.
   services.victorialogs = {
     enable = true;
+    package = restampVersion pkgs.victorialogs "victoria-logs";
     listenAddress = "127.0.0.1:9428";
     # Default retention is only 7d; keep a year, matching the metrics.
     extraOptions = [ "-retentionPeriod=1y" ];
@@ -248,17 +414,42 @@ in
         zipHash = "sha256-ggTQl7F/U7HDpxdhBHc0t5gL2YNxDGz8742Tir5e7vA=";
       })
     ];
+    # Migration shim: these datasources were first provisioned without
+    # explicit uids, so they sit in grafana.db under auto-generated ones.
+    # Grafana's provisioner can't change a datasource's uid — it updates
+    # by the NEW uid, finds nothing, and aborts startup with "data source
+    # not found". Deleting by name first (a no-op once migrated) lets them
+    # be recreated with the fixed uids below.
+    provision.datasources.settings.deleteDatasources = [
+      {
+        name = "VictoriaMetrics";
+        orgId = 1;
+      }
+      {
+        name = "VictoriaLogs";
+        orgId = 1;
+      }
+    ];
     provision.datasources.settings.datasources = [
       {
         name = "VictoriaMetrics";
+        # Fixed uid so provisioned dashboards can reference it.
+        uid = "victoriametrics";
         type = "prometheus";
         url = "http://${config.services.victoriametrics.listenAddress}";
         isDefault = true;
       }
       {
         name = "VictoriaLogs";
+        uid = "victorialogs";
         type = "victoriametrics-logs-datasource";
         url = "http://${config.services.victorialogs.listenAddress}";
+      }
+    ];
+    provision.dashboards.settings.providers = [
+      {
+        name = "declarative";
+        options.path = dashboardsDir;
       }
     ];
   };
