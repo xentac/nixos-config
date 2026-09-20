@@ -51,9 +51,10 @@ let
       doCheck = false;
     });
 
-  # Dashboards from grafana.com, pinned by (id, revision, hash) — the
-  # declarative replacement for importing by hand. Revisions are
-  # immutable, so the fetch is reproducible. Most dashboards pick their
+  # Dashboards pinned by hash — the declarative replacement for importing
+  # by hand. grafanaDashboard fetches from grafana.com by (id, revision);
+  # patchDashboard is the shared jq pass for dashboards that come from
+  # elsewhere (e.g. an exporter's own repo). Most dashboards pick their
   # datasource via a template variable (defaulting to the default
   # datasource); the jq pass hard-wires the ones that instead declare a
   # `__inputs` placeholder: prometheus-type inputs point at our
@@ -62,19 +63,15 @@ let
   # which provisioning bypasses). `replace` is for patching author
   # mistakes: literal string substitutions applied inside every string
   # value of the dashboard JSON.
-  grafanaDashboard =
+  patchDashboard =
+    name:
     {
-      id,
-      rev,
-      hash,
+      src,
       replace ? { },
     }:
-    pkgs.runCommand "grafana-dashboard-${toString id}-rev${toString rev}.json"
+    pkgs.runCommand name
       {
-        src = pkgs.fetchurl {
-          url = "https://grafana.com/api/dashboards/${toString id}/revisions/${toString rev}/download";
-          inherit hash;
-        };
+        inherit src;
         nativeBuildInputs = [ pkgs.jq ];
       }
       ''
@@ -94,6 +91,21 @@ let
               )
             }' "$src" > "$out"
       '';
+
+  grafanaDashboard =
+    {
+      id,
+      rev,
+      hash,
+      replace ? { },
+    }:
+    patchDashboard "grafana-dashboard-${toString id}-rev${toString rev}.json" {
+      src = pkgs.fetchurl {
+        url = "https://grafana.com/api/dashboards/${toString id}/revisions/${toString rev}/download";
+        inherit hash;
+      };
+      inherit replace;
+    };
 
   dashboardsDir = pkgs.linkFarm "grafana-dashboards" [
     {
@@ -146,6 +158,21 @@ let
         };
       };
     }
+    # grafana.com has no dashboard for msroest/sabnzbd_exporter; upstream
+    # ships one in its repo. Pinned to the same tag nixpkgs builds the
+    # exporter from (a package bump surfaces here as a hash mismatch).
+    # It hardcodes the author's prometheus datasource uid in every panel;
+    # rewrite it to ours.
+    {
+      name = "sabnzbd.json";
+      path = patchDashboard "sabnzbd-exporter-dashboard.json" {
+        src = pkgs.fetchurl {
+          url = "https://raw.githubusercontent.com/msroest/sabnzbd_exporter/${pkgs.prometheus-sabnzbd-exporter.version}/examples/dashboard.json";
+          hash = "sha256-y4TLaS0JhczQuRg0Fnz0IsybwSwJVDenHs8X9bqy0bY=";
+        };
+        replace."000000001" = "victoriametrics";
+      };
+    }
     {
       name = "restic-exporter.json";
       path = grafanaDashboard {
@@ -195,6 +222,25 @@ in
     refreshInterval = 3600;
   };
 
+  # Queue/throughput metrics from sabnzbd (media.nix): queue size and
+  # remaining bytes, download rate, paused state, per-server totals.
+  services.prometheus.exporters.sabnzbd = {
+    enable = true;
+    listenAddress = "127.0.0.1";
+    servers = [
+      {
+        baseUrl = "http://127.0.0.1:${toString config.services.sabnzbd.settings.misc.port}${config.services.sabnzbd.settings.misc.url_base}";
+        apiKeyFile = config.sops.secrets."sabnzbd/api_key".path;
+      }
+    ];
+  };
+
+  # The same api_key that lives inside sabnzbd/secrets_ini (media.nix),
+  # duplicated as a bare value because the exporter wants a file holding
+  # only the key — rotate both together. Read by systemd (LoadCredential)
+  # as root, so default root ownership is fine.
+  sops.secrets."sabnzbd/api_key" = { };
+
   # Time-series database. When adding an exporter, add a scrape_configs
   # entry pointing at it.
   services.victoriametrics = {
@@ -238,6 +284,16 @@ in
             {
               targets = [
                 "127.0.0.1:${toString config.services.prometheus.exporters.restic.port}"
+              ];
+            }
+          ];
+        }
+        {
+          job_name = "sabnzbd";
+          static_configs = [
+            {
+              targets = [
+                "127.0.0.1:${toString config.services.prometheus.exporters.sabnzbd.port}"
               ];
             }
           ];
