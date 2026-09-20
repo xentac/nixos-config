@@ -29,6 +29,14 @@
     dns = [ "192.168.1.1" ];
   };
 
+  # Allow UDP ports for mosh
+  networking.firewall.allowedUDPPortRanges = [
+    {
+      from = 61010;
+      to = 61019;
+    }
+  ];
+
   # UEFI boot off the ESP disko creates; every generation in the boot menu
   # is the remote-rollback safety net, so keep plenty.
   boot.loader.systemd-boot.enable = true;
