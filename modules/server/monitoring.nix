@@ -231,13 +231,26 @@ let
         };
       };
     }
+    # Hand-written port of the old InfluxDB-backed "Boat internals"
+    # dashboard, rebuilt against the signalk scrape job below (battery/
+    # solar/tank/Starlink metrics). Per-charger panels join each metric
+    # with its electrical.solar.<id>.name companion (the human-readable
+    # name rides in the value_str label), so new chargers appear without
+    # editing the dashboard. String states (charging mode, Starlink
+    # status/software) can't cross Prometheus as strings: charging mode
+    # uses chargingModeNumber (the Victron VE.Bus /State enum) with value
+    # mappings; the Starlink panels draw one timeline row per value_str.
+    {
+      name = "Boat/boat-internals.json";
+      path = ./grafana-dashboards/boat-internals.json;
+    }
     # Pinned to rev 2, not the latest rev 3: rev 3 graphs metrics that only
     # exist in restic-exporter >= 2.0 (restic_size_total, compression ratio,
     # files new/changed, ...) while nixpkgs still packages 1.7.0, leaving
     # half the dashboard permanently "No data". Rev 2 uses exactly the 1.7.0
     # metric set. Bump back to rev 3 when the nixpkgs exporter reaches 2.x.
     {
-      name = "restic-exporter.json";
+      name = "System/restic-exporter.json";
       path = grafanaDashboard {
         id = 17554;
         rev = 2;
