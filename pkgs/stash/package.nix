@@ -8,10 +8,12 @@
 {
   buildGoModule,
   fetchFromGitHub,
+  fetchPnpmDeps,
   lib,
   nixosTests,
   nodejs,
   pnpm_10,
+  pnpmConfigHook,
   stash,
   stdenv,
   testers,
@@ -35,14 +37,16 @@ buildGoModule (
       inherit (finalAttrs) version gitHash;
       src = "${finalAttrs.src}/ui/v2.5";
 
-      pnpmDeps = pnpm_10.fetchDeps {
+      pnpmDeps = fetchPnpmDeps {
         inherit (final) pname version src;
-        fetcherVersion = 2;
+        pnpm = pnpm_10;
+        fetcherVersion = 3;
         hash = finalAttrs.pnpmHash;
       };
 
       nativeBuildInputs = [
-        pnpm_10.configHook
+        pnpm_10
+        pnpmConfigHook
         # Needed for executing package.json scripts
         nodejs
       ];
@@ -127,7 +131,6 @@ buildGoModule (
 
     passthru = {
       inherit frontend;
-      updateScript = ./update.py;
       tests = {
         inherit (nixosTests) stash;
         version = testers.testVersion {
