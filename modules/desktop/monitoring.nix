@@ -111,7 +111,7 @@ let
     # repairs their baked-in references to the pre-migration datasource
     # uids.
     {
-      name = "node-exporter-full.json";
+      name = "System/node-exporter-full.json";
       path = grafanaDashboard {
         id = 1860;
         rev = 45;
@@ -123,7 +123,7 @@ let
     # SATA-attribute query with an NVMe query; only the NVMe half returns
     # data here, which is expected.
     {
-      name = "smartctl.json";
+      name = "System/smartctl.json";
       path = grafanaDashboard {
         id = 22604;
         rev = 3;
@@ -131,7 +131,7 @@ let
       };
     }
     {
-      name = "victoriametrics-single-node.json";
+      name = "Monitoring/victoriametrics-single-node.json";
       path = grafanaDashboard {
         id = 10229;
         rev = 58;
@@ -139,7 +139,7 @@ let
       };
     }
     {
-      name = "victorialogs-single-node.json";
+      name = "Monitoring/victorialogs-single-node.json";
       path = grafanaDashboard {
         id = 22084;
         rev = 11;
@@ -149,7 +149,7 @@ let
     # Hand-written journald explorer, shared with the server (it's the
     # same VictoriaLogs setup on both).
     {
-      name = "journald-explorer.json";
+      name = "System/journald-explorer.json";
       path = ../server/grafana-dashboards/journald-explorer.json;
     }
     # Same upstream-bug patch as the server: the two jitter queries
@@ -157,7 +157,7 @@ let
     # template variables; rewrite them to the templated selector every
     # other panel uses.
     {
-      name = "smokeping.json";
+      name = "System/smokeping.json";
       path = grafanaDashboard {
         id = 22471;
         rev = 1;
@@ -173,7 +173,7 @@ let
     # node_exporter's powersupplyclass + rapl collectors (see the power
     # metrics section below).
     {
-      name = "battery.json";
+      name = "System/battery.json";
       path = ./grafana-dashboards/battery.json;
     }
     # Companion dashboard to the restic exporter. Pinned to rev 2, not the
@@ -183,7 +183,7 @@ let
     # permanently "No data". Rev 2 uses exactly the 1.7.0 metric set. Bump
     # back to rev 3 when the nixpkgs exporter reaches 2.x.
     {
-      name = "restic-exporter.json";
+      name = "System/restic-exporter.json";
       path = grafanaDashboard {
         id = 17554;
         rev = 2;
@@ -450,6 +450,9 @@ in
       {
         name = "declarative";
         options.path = dashboardsDir;
+        # Entries in dashboardsDir are named "<Folder>/<file>.json"; the
+        # first-level directory becomes the dashboard's Grafana folder.
+        options.foldersFromFilesStructure = true;
       }
     ];
   };

@@ -150,7 +150,7 @@ let
 
   dashboardsDir = pkgs.linkFarm "grafana-dashboards" [
     {
-      name = "node-exporter-full.json";
+      name = "System/node-exporter-full.json";
       path = grafanaDashboard {
         id = 1860;
         rev = 45;
@@ -158,7 +158,7 @@ let
       };
     }
     {
-      name = "victoriametrics-single-node.json";
+      name = "Monitoring/victoriametrics-single-node.json";
       path = grafanaDashboard {
         id = 10229;
         rev = 58;
@@ -166,7 +166,7 @@ let
       };
     }
     {
-      name = "victorialogs-single-node.json";
+      name = "Monitoring/victorialogs-single-node.json";
       path = grafanaDashboard {
         id = 22084;
         rev = 11;
@@ -178,7 +178,7 @@ let
     # host/unit/level plus a free-form LogsQL box; journald's PRIORITY is
     # auto-converted to the `level` field on ingestion.
     {
-      name = "journald-explorer.json";
+      name = "System/journald-explorer.json";
       path = ./grafana-dashboards/journald-explorer.json;
     }
     # Richest of the smokeping_prober dashboards on grafana.com: status
@@ -188,7 +188,7 @@ let
     # panels "Today's Jittering" and "Avg. Response Time"); rewrite them
     # to the same templated selector every other panel uses.
     {
-      name = "smokeping.json";
+      name = "System/smokeping.json";
       path = grafanaDashboard {
         id = 22471;
         rev = 1;
@@ -205,7 +205,7 @@ let
     # It hardcodes the author's prometheus datasource uid in every panel;
     # rewrite it to ours.
     {
-      name = "sabnzbd.json";
+      name = "Media/sabnzbd.json";
       path = patchDashboard "sabnzbd-exporter-dashboard.json" {
         src = pkgs.fetchurl {
           url = "https://raw.githubusercontent.com/msroest/sabnzbd_exporter/${pkgs.prometheus-sabnzbd-exporter.version}/examples/dashboard.json";
@@ -220,7 +220,7 @@ let
     # (normally edited during the import wizard); rewrite its two
     # expressions to expect our single NAS.
     {
-      name = "synology.json";
+      name = "NAS/synology.json";
       path = grafanaDashboard {
         id = 14284;
         rev = 10;
@@ -537,6 +537,9 @@ in
       {
         name = "declarative";
         options.path = dashboardsDir;
+        # Entries in dashboardsDir are named "<Folder>/<file>.json"; the
+        # first-level directory becomes the dashboard's Grafana folder.
+        options.foldersFromFilesStructure = true;
       }
     ];
   };
