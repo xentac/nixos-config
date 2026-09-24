@@ -93,7 +93,8 @@ let
     });
 
   # Dashboards pinned by hash — the declarative replacement for importing
-  # by hand. grafanaDashboard fetches from grafana.com by (id, revision);
+  # by hand. Edit/add workflow: docs/grafana-dashboards.md.
+  # grafanaDashboard fetches from grafana.com by (id, revision);
   # patchDashboard is the shared jq pass for dashboards that come from
   # elsewhere (e.g. an exporter's own repo). Most dashboards pick their
   # datasource via a template variable (defaulting to the default

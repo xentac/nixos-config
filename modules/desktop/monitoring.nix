@@ -51,7 +51,8 @@ let
     });
 
   # Dashboards pinned by hash — the declarative replacement for importing
-  # by hand. Same helpers as modules/server/monitoring.nix (donatello is
+  # by hand. Edit/add workflow: docs/grafana-dashboards.md.
+  # Same helpers as modules/server/monitoring.nix (donatello is
   # deliberately self-contained, so the code is duplicated rather than
   # shared). patchDashboard resolves a downloaded dashboard's `__inputs`
   # placeholders: prometheus-type inputs point at our VictoriaMetrics

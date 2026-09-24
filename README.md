@@ -16,6 +16,9 @@ Historical docs: [docs/install.md](docs/install.md) is the from-scratch
 the Ubuntu ("baxter") → NixOS migration this config came from.
 Design notes: [docs/backups.md](docs/backups.md) records the
 one-restic-repo-per-host decision for when a second machine joins.
+Runbooks: [docs/grafana-dashboards.md](docs/grafana-dashboards.md) is
+the edit-in-UI → export → commit round-trip for the provisioned
+Grafana dashboards.
 
 ## Status
 
