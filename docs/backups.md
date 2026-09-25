@@ -1,9 +1,11 @@
 # Backup design: one restic repo per host
 
-Decision from September 2026, recorded before a second host exists so
-the reasoning isn't lost. `modules/nixos/backups.nix` currently
-hardcodes `b2:restic-donatello:`; when another machine joins the flake,
-switch to hostname-derived sub-paths rather than sharing one repo.
+Decision from September 2026. Implemented in
+`modules/desktop/backups.nix` (donatello: `/home` + host keys +
+NetworkManager connections) and `modules/server/backups.nix`
+(alba-nix: `/var/lib` + host keys), both deriving the repo path from
+the hostname. How to restore — from a single directory up to a full
+machine rebuild — is in [recovery.md](recovery.md).
 
 ## The decision
 
@@ -11,7 +13,7 @@ Each host gets its **own restic repository**, spelled as a sub-path in
 a single shared B2 bucket:
 
 ```nix
-repository = "b2:xentac-backups:restic/${config.networking.hostName}";
+repository = "b2:backups-xentac:restic/${config.networking.hostName}/";
 ```
 
 Restic treats each sub-path as a completely independent repository —

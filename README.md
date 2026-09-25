@@ -15,8 +15,11 @@ Historical docs: [docs/install.md](docs/install.md) is the from-scratch
 (re)install walkthrough; [docs/migration.md](docs/migration.md) records
 the Ubuntu ("baxter") → NixOS migration this config came from.
 Design notes: [docs/backups.md](docs/backups.md) records the
-one-restic-repo-per-host decision for when a second machine joins.
-Runbooks: [docs/grafana-dashboards.md](docs/grafana-dashboards.md) is
+one-restic-repo-per-host decision.
+Runbooks: [docs/recovery.md](docs/recovery.md) is the
+restore-from-backup runbook (read data elsewhere, or rebuild a host
+from scratch with just this repo and the age key);
+[docs/grafana-dashboards.md](docs/grafana-dashboards.md) is
 the edit-in-UI → export → commit round-trip for the provisioned
 Grafana dashboards.
 
@@ -25,9 +28,9 @@ Grafana dashboards.
 - Installed and running since 2026-09-08; the system tracks this repo.
 - LUKS unlock via TPM is enrolled (passphrase stays as fallback).
 - btrbk local snapshots run daily and are verified working.
-- **TODO — offsite backup**: the restic block in `backups.nix` is still
-  commented out pending a repository decision. Local snapshots are not
-  a backup.
+- Offsite backups run daily: restic → B2, one repo per host
+  ([docs/backups.md](docs/backups.md)); restore procedure in
+  [docs/recovery.md](docs/recovery.md).
 - **TODO — hibernation untested**: `boot.resumeDevice` is set, but it
   becomes a `resume=` kernel parameter, so it only takes effect on the
   next boot — a switch is not enough. Reboot, then test
