@@ -245,6 +245,23 @@ let
       name = "Boat/boat-internals.json";
       path = ./grafana-dashboards/boat-internals.json;
     }
+    # Hand-written ports of the boat's old InfluxDB-backed Anchor and
+    # Sailing dashboards, rebuilt on PromQL against the signalk scrape
+    # job (units converted in-query: m/s * 1.94384 -> kn, rad *
+    # 180/pi -> deg, K - 273.15 -> degC). The library panels the originals
+    # shared (Location, TWS, TWS heatmap, TWD, Depth below keel, Water
+    # temperature) are inlined per dashboard: provisioned dashboards
+    # can't reference library panels. The anchor panels only get data
+    # while the anchoralarm plugin has an anchor set. The compass panels
+    # need the briangann-gauge-panel plugin declared below.
+    {
+      name = "Boat/anchor.json";
+      path = ./grafana-dashboards/anchor.json;
+    }
+    {
+      name = "Boat/sailing.json";
+      path = ./grafana-dashboards/sailing.json;
+    }
     # Pinned to rev 2, not the latest rev 3: rev 3 graphs metrics that only
     # exist in restic-exporter >= 2.0 (restic_size_total, compression ratio,
     # files new/changed, ...) while nixpkgs still packages 1.7.0, leaving
@@ -502,6 +519,12 @@ in
         pname = "victoriametrics-logs-datasource";
         version = "0.32.0";
         zipHash = "sha256-ggTQl7F/U7HDpxdhBHc0t5gL2YNxDGz8742Tir5e7vA=";
+      })
+      # D3 compass gauges (COG/Heading/AWA/TWD) on the Sailing dashboard.
+      (pkgs.grafanaPlugins.grafanaPlugin {
+        pname = "briangann-gauge-panel";
+        version = "2.0.1";
+        zipHash = "sha256-Z2b2We/XP92xWNygA1fqVQqfFqIS4KMmFyKmFfeF9xg=";
       })
     ];
     # Datasources are matched by name, but pre-uid records in grafana's DB
