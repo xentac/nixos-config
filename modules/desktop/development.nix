@@ -128,5 +128,6 @@
     android-tools
     claude-code
     gemini-cli
+    opencode
   ];
 }
