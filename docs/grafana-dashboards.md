@@ -37,17 +37,36 @@ exactly the export mechanism:
 2. Hit **Save**. Grafana pops a "cannot save provisioned dashboard"
    dialog showing the full updated JSON with a copy button — copy it.
    (Alternatively: Dashboard settings → **JSON Model**, any time.)
-3. Paste it over the repo file and strip the volatile fields Grafana
-   adds. The checked-in files carry no `id`/`version` keys and a
-   stable hand-picked `uid`:
+
+   Grafana 13 only emits the **v2 schema** (Kubernetes-style:
+   `apiVersion: dashboard.grafana.app/v2`, panels under
+   `spec.elements`/`layout`) — the "Classic" export option is broken
+   and emits v2 anyway (grafana/grafana#126641, #123607). So
+   hand-written dashboards migrate from the classic model to v2 as
+   they get edited; file provisioning accepts both formats
+   side by side, v2 as the full resource with that `apiVersion`.
+3. Paste it over the repo file, then normalize it in place:
 
    ```sh
-   jq 'del(.id, .version)' pasted.json \
-     > modules/server/grafana-dashboards/boat-internals.json
+   just dashboard modules/server/grafana-dashboards/boat-internals.json
    ```
 
-   Keep the `uid` as-is — it's what makes the provisioner update the
-   existing dashboard in place instead of creating a duplicate.
+   The recipe handles either format and rewrites the file in jq's
+   stable formatting so diffs stay clean:
+
+   - **classic model** (has `.panels`): strips the volatile
+     `id`/`version` keys.
+   - **v2 export** (full resource, or just the bare `spec` — the
+     broken "Classic" option produces that): rebuilds a minimal
+     wrapper of `apiVersion`/`kind`/`metadata.name`/`spec`, dropping
+     the server-side `metadata` (`resourceVersion`, timestamps, the
+     provisioning store path) that would churn on every deploy.
+
+   The dashboard uid — `.uid` in classic, `.metadata.name` in v2 —
+   must match the previous revision in git, and the recipe refuses if
+   it doesn't: a stable uid is what makes the provisioner update the
+   dashboard in place instead of duplicating it, and a fresh export
+   can come back with a different one.
 4. Rebuild and deploy the host; the provisioner picks up the new file
    on activation. Diff the JSON before committing — it's readable
    enough to sanity-check that only the intended panels changed.
@@ -79,9 +98,11 @@ move the entry to a local `path`, noting where it came from.
 
 1. Build it in the Grafana UI (it lives in Grafana's database while
    you iterate).
-2. Export the JSON Model, `jq 'del(.id, .version)'`, set a stable
-   kebab-case `uid`, and drop the file in the host's
-   `grafana-dashboards/` directory.
+2. Export the JSON Model and paste it into
+   `modules/<host dir>/grafana-dashboards/<name>.json`. If the export
+   has no uid (a bare v2 `spec` for a file with no git history), wrap
+   it as `{"metadata": {"name": "<kebab-case-uid>"}, "spec": …}`.
+   Then run `just dashboard` on that path.
 3. Add a `dashboardsDir` entry named `"<Folder>/<name>.json"` with
    `path = ./grafana-dashboards/<name>.json`, plus a comment saying
    why it's hand-written (convention: the existing entries all explain
