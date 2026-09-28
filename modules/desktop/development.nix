@@ -68,6 +68,8 @@ in
     screen
     w3m
     wcalc
+    _7zip-zstd
+    zstd
 
     # --- build tools (also needed: nvim-treesitter compiles parsers with cc)
     gcc
