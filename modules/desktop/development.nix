@@ -7,7 +7,16 @@
 #      work (claude, gcloud, cargo-binstall'd tools, nvm's node...).
 #   2. Prefer installing tools from nixpkgs (below) and tell Mason to stop
 #      auto-installing. See README "LazyVim on NixOS".
-{ pkgs, ... }:
+{ pkgs, inputs, ... }:
+let
+  # The unstable input's legacyPackages ships with default config, which
+  # refuses unfree packages — our nixpkgs.config.allowUnfree (nix-settings.nix)
+  # only applies to the main package set. Import it with unfree allowed.
+  unstable = import inputs.nixpkgs-unstable {
+    inherit (pkgs.stdenv.hostPlatform) system;
+    config.allowUnfree = true;
+  };
+in
 {
   programs.nix-ld.enable = true;
 
@@ -126,7 +135,9 @@
     beancount
     fava
     android-tools
-    claude-code
+    # From the rolling nixpkgs input: releases near-daily, and nixos-26.05 is
+    # weeks behind — new Anthropic models need a current version.
+    unstable.claude-code
     gemini-cli
     opencode
   ];

@@ -13,6 +13,12 @@
     # Swap to "github:NixOS/nixpkgs/nixos-unstable" for a rolling setup.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
+    # A second, rolling nixpkgs for the handful of fast-moving packages where
+    # the stable branch lags too far behind (claude-code). Bump it alone with
+    # `nix flake update nixpkgs-unstable`. No `follows` here on purpose — the
+    # whole point is that it pins a different rev than the stable input.
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
     # Community hardware quirks (Framework laptop kernel modules, power
     # tweaks, fingerprint reader, etc). Consumed in hosts/donatello/default.nix.
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
