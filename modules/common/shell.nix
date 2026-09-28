@@ -21,6 +21,11 @@
     vimAlias = true;
   };
 
+  # Terminfo for terminals that aren't installed here (kitty, ghostty, …), so
+  # SSHing in from one doesn't leave TERM unresolvable ("can't find terminal
+  # definition for xterm-kitty") and break zsh, less, etc.
+  environment.enableAllTerminfo = true;
+
   programs.zsh = {
     enable = true; # registers zsh in /etc/shells; required for shell = pkgs.zsh
     autosuggestions.enable = true; # fish-style grey inline suggestions from history
