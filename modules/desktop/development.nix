@@ -87,7 +87,7 @@ in
     rustup # `rustup default stable` once; nixpkgs patches toolchains to work
     cargo-audit
     cargo-binstall
-    python3
+    python314 # not yet nixpkgs' default python3; 3.14 for stdlib compression.zstd
     uv # `uv tool install foo` replaces pipx (pipx's tests fail on 26.05, so it is not cached)
     openjdk21
     R
