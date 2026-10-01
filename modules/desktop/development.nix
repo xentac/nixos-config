@@ -142,5 +142,6 @@ in
     unstable.claude-code
     gemini-cli
     opencode
+    litellm
   ];
 }

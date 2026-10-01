@@ -18,6 +18,7 @@
     # comms
     thunderbird
     signal-desktop
+    scli
     discord
     slack
     element-desktop
