@@ -186,6 +186,9 @@
   sops.secrets."stash/session_key" = {
     owner = "stash";
   };
+  sops.secrets."stash/stashdb_api_key" = {
+    owner = "stash";
+  };
 
   services.stash = {
     enable = true;
@@ -218,6 +221,61 @@
       stash = [ { path = "/adult"; } ];
       # database/generated/cache default to /var/lib/stash/*; backups.nix
       # excludes generated+cache (regenerable) from restic.
+
+      # Everything below was UI-configured once, wiped by a restart
+      # (mutableSettings = false regenerates config.yml every start),
+      # and recovered from the config-history journal. New UI settings
+      # must be folded in here or they die with the next deploy.
+      #
+      # /adult is a git-annex working tree: without the excludes, stash
+      # also scans every annex content object under .git/annex/objects
+      # (SHA256E keys keep the .wmv/.mp4 extension), doubling the
+      # library with hash-named ghost scenes. Patterns are regexes;
+      # anchor on the path component, not a bare ".git".
+      exclude = [ "/\\.git/" ];
+      image_exclude = [ "/\\.git/" ];
+      maximum_sprites = 500;
+      minimum_sprites = 10;
+      sprite_interval = 30;
+      sprite_screenshot_width = 160;
+      plugins.package_sources = [
+        {
+          localpath = "community";
+          name = "Community (stable)";
+          url = "https://stashapp.github.io/CommunityScripts/stable/index.yml";
+        }
+      ];
+      scrapers.package_sources = [
+        {
+          localpath = "community";
+          name = "Community (stable)";
+          url = "https://stashapp.github.io/CommunityScrapers/stable/index.yml";
+        }
+      ];
+      stash_boxes = [
+        {
+          name = "StashDB";
+          endpoint = "https://stashdb.org/graphql";
+          # The module writes settings verbatim into the nix store, so
+          # the real key can't live here; the ExecStartPre below swaps
+          # this placeholder for the sops secret — same trick the module
+          # itself plays for password/jwt/session_key.
+          apikey = "@STASHDB_API_KEY@";
+        }
+      ];
     };
   };
+
+  # Runs after the module's own ExecStartPre (mkAfter) — i.e. after
+  # config.yml has been regenerated with the placeholder above.
+  systemd.services.stash.serviceConfig.ExecStartPre = lib.mkAfter [
+    (toString (
+      pkgs.writeShellScript "stash-inject-stashdb-key" ''
+        APIKEY=$(< ${config.sops.secrets."stash/stashdb_api_key".path}) \
+          ${lib.getExe pkgs.yq-go} -i \
+          '(.stash_boxes[] | select(.apikey == "@STASHDB_API_KEY@") | .apikey) = strenv(APIKEY)' \
+          /var/lib/stash/config.yml
+      ''
+    ))
+  ];
 }
