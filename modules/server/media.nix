@@ -268,13 +268,19 @@
 
   # Runs after the module's own ExecStartPre (mkAfter) — i.e. after
   # config.yml has been regenerated with the placeholder above.
+  # No `yq -i`: its in-place write chowns a temp file, and the unit's
+  # SystemCallFilter SIGSYS-kills anything in @chown. Redirect + mv
+  # (plain rename) stays inside the sandbox, like the module's own yq.
   systemd.services.stash.serviceConfig.ExecStartPre = lib.mkAfter [
     (toString (
       pkgs.writeShellScript "stash-inject-stashdb-key" ''
+        set -euo pipefail
+        cfg=/var/lib/stash/config.yml
         APIKEY=$(< ${config.sops.secrets."stash/stashdb_api_key".path}) \
-          ${lib.getExe pkgs.yq-go} -i \
+          ${lib.getExe pkgs.yq-go} \
           '(.stash_boxes[] | select(.apikey == "@STASHDB_API_KEY@") | .apikey) = strenv(APIKEY)' \
-          /var/lib/stash/config.yml
+          "$cfg" > "$cfg.tmp"
+        mv "$cfg.tmp" "$cfg"
       ''
     ))
   ];
