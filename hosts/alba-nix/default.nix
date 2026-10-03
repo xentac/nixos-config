@@ -2,7 +2,7 @@
 # Starts as the media-automation host (sabnzbd + arrs + stash) and will
 # eventually absorb the services on the Ubuntu docker VM. Design decisions
 # are recorded in docs/adr/; day-to-day operations in docs/alba-nix.md.
-{ inputs, ... }:
+{ inputs, lib, ... }:
 {
   imports = [
     inputs.disko.nixosModules.disko
@@ -67,6 +67,11 @@
   users.users.root.openssh.authorizedKeys.keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMpYxRf08tuKPVgsBua3etm5rOHj/I2XL6g8Gj4Ra3mT xentac@baxter"
   ];
+
+  # xentac has no password here on purpose (the account stays locked), so
+  # sudo can't ask for one. Root is reachable with the same SSH key anyway,
+  # so a sudo password would add nothing; overrides modules/common/users.nix.
+  security.sudo.wheelNeedsPassword = lib.mkForce false;
 
   # DO NOT bump this after install. It records which NixOS release first
   # created stateful data (DB formats, etc.) and is not "the version you run".
