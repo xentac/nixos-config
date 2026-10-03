@@ -36,6 +36,14 @@ in
 
   services.caddy = {
     enable = true;
+    # The NixOS module reloads caddy on config-only changes by default,
+    # but caddy-tailscale doesn't survive graceful reloads (the old
+    # config's tsnet listeners stay bound and the reload fails). false
+    # swaps the reload trigger for a restart trigger on the Caddyfile.
+    # (Merely emptying reloadTriggers is not enough: the Caddyfile lives
+    # at a fixed /etc path, so without a trigger a new `published` entry
+    # changes nothing in the unit and caddy keeps running the old config.)
+    enableReload = false;
     # Default is `level ERROR`, which swallows all tsnet node
     # registration/auth output.
     logFormat = "level INFO";
@@ -78,11 +86,5 @@ in
     }) published;
   };
 
-  systemd.services.caddy = {
-    serviceConfig.EnvironmentFile = config.sops.secrets."caddy/environment".path;
-    # The NixOS module reloads caddy on config-only changes, but
-    # caddy-tailscale doesn't survive graceful reloads (the old config's
-    # tsnet listeners stay bound and the reload fails). Restart instead.
-    reloadTriggers = lib.mkForce [ ];
-  };
+  systemd.services.caddy.serviceConfig.EnvironmentFile = config.sops.secrets."caddy/environment".path;
 }
