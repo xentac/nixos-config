@@ -25,6 +25,7 @@ let
     whisparr = "127.0.0.1:6969";
     stash = "127.0.0.1:9999";
     alba-grafana = "127.0.0.1:3000";
+    fava = "127.0.0.1:5000"; # fava.nix; finances — restrict the node in the tailnet ACL
   };
 in
 {

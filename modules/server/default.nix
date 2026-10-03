@@ -7,5 +7,6 @@
     ./caddy.nix
     ./monitoring.nix
     ./backups.nix
+    ./fava.nix
   ];
 }
