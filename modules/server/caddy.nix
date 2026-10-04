@@ -87,4 +87,7 @@ in
   };
 
   systemd.services.caddy.serviceConfig.EnvironmentFile = config.sops.secrets."caddy/environment".path;
+
+  # The plugin build on PATH, for `caddy validate`, `caddy list-modules`, etc.
+  environment.systemPackages = [ config.services.caddy.package ];
 }

@@ -6,9 +6,19 @@
 # ~/.zshrc, and starship prefers ~/.config/starship.toml when it exists.
 { pkgs, ... }:
 {
-  # Unified git+jj prompt module, wired up via [custom.jj] in starship.toml.
-  environment.systemPackages = [
-    pkgs.jj-starship
+  environment.systemPackages = with pkgs; [
+    # Unified git+jj prompt module, wired up via [custom.jj] in starship.toml.
+    jj-starship
+
+    # Baseline admin tools on every host, for root as much as for xentac.
+    # Installed rather than left to `nix-shell -p` because that needs a
+    # download, and the boat's uplink is least reliable exactly when you're
+    # debugging.
+    git
+    htop
+    jq
+    ripgrep
+    tmux
   ];
 
   # Every host needs an editor, including headless servers where root at a

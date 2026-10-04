@@ -30,7 +30,7 @@ in
 
   environment.systemPackages = with pkgs; [
     # --- VCS
-    git
+    # git, tmux, ripgrep, htop, jq come from modules/common/shell.nix
     git-annex
     git-filter-repo
     gh
@@ -41,19 +41,15 @@ in
 
     # --- editor / shell
     # neovim comes from modules/common/shell.nix (programs.neovim)
-    tmux
     starship
     fzf
-    ripgrep
     fd
-    # jq comes from desktop.nix: sway's screenshot/keyboard bindings need it
     yq-go
     just
     tree
     bat
     eza
     delta
-    htop
     btop
     ncdu
     gdu
