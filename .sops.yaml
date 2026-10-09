@@ -19,6 +19,13 @@ keys:
   # key can decrypt that file, so the first deploy with real secrets comes
   # after this step (see docs/alba-nix.md).
 creation_rules:
+  # proxmox is not a NixOS host and never decrypts anything: this file is
+  # only an escrow of its restic repo password + B2 key (docs/backups.md),
+  # so the admin key alone can read it.
+  - path_regex: secrets/proxmox\.yaml$
+    key_groups:
+      - age:
+          - *admin
   - path_regex: secrets/donatello\.yaml$
     key_groups:
       - age:
