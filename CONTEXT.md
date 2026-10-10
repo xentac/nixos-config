@@ -28,3 +28,12 @@ Canonical vocabulary for this repo. Terms only — design decisions live in
   `adult` (whisparr, stash) is the only group able to traverse `/adult`.
 - **published service** — a service given its own tailnet hostname by the
   caddy-tailscale layer (`modules/server/caddy.nix`).
+- **docker-vm** — the Ubuntu VM on Alba's Proxmox that runs the legacy
+  compose stack (tsdproxy, InfluxDB, the old Signal K). Being drained
+  into alba-nix service by service; not managed by this repo.
+- **signalk** — *the* Signal K server for the boat: the aggregating
+  instance on alba-nix that apps, dashboards and Node-RED mean by
+  "Signal K". Its only data input is victron-signalk.
+- **victron-signalk** — the Signal K instance built into the Victron GX
+  (Venus OS). The sole upstream source of boat data; an appliance,
+  never configured from this repo.

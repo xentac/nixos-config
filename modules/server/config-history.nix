@@ -18,7 +18,8 @@
 let
   repoDir = "/var/lib/config-history";
 
-  # service name -> the mutable config file the app may rewrite.
+  # service name -> the mutable config the app may rewrite: one file, or
+  # a list of files and directories (a directory is mirrored whole).
   # The arrs' config.xml is only bootstrap (port/api key/auth mode);
   # their real config lives in sqlite and is covered by their built-in
   # scheduled Backups instead — a binary db has no useful git diff.
@@ -31,7 +32,19 @@ let
     # so UI edits only survive here until the next restart — the journal
     # is what makes them recoverable.
     stash = "/var/lib/stash/config.yml";
+    # Everything Signal K's Admin UI edits: connections and server
+    # settings, vessel identity, users + device tokens, and one json per
+    # configured plugin. The installed plugins themselves (node_modules)
+    # are state, not config — package.json lists them.
+    signalk = [
+      "/var/lib/signalk/settings.json"
+      "/var/lib/signalk/defaults.json"
+      "/var/lib/signalk/security.json"
+      "/var/lib/signalk/package.json"
+      "/var/lib/signalk/plugin-config-data"
+    ];
   };
+  watchedPaths = lib.mapAttrs (_: lib.toList) watched;
 
   commit = pkgs.writeShellApplication {
     name = "config-history-commit";
@@ -40,10 +53,10 @@ let
       pkgs.util-linux
     ];
     text = ''
-      # usage: config-history-commit <service> <file> <message>
+      # usage: config-history-commit <service> <message> <path>...
       svc=$1
-      src=$2
-      msg=$3
+      msg=$2
+      shift 2
       repo=${repoDir}
 
       # All services share one repo and restart together on a rebuild;
@@ -57,11 +70,18 @@ let
         git -C "$repo" config user.email "root@localhost"
       fi
 
-      # First boot: the app may not have written its config yet.
-      [ -e "$src" ] || exit 0
-
       mkdir -p "$repo/$svc"
-      install -m 600 "$src" "$repo/$svc/$(basename "$src")"
+      for src in "$@"; do
+        dst="$repo/$svc/$(basename "$src")"
+        # First boot: the app may not have written its config yet.
+        if [ -d "$src" ]; then
+          rm -rf "$dst"
+          cp -r "$src" "$dst"
+          chmod -R go-rwx "$dst"
+        elif [ -e "$src" ]; then
+          install -m 600 "$src" "$dst"
+        fi
+      done
       git -C "$repo" add -A -- "$svc"
 
       case "$msg" in
@@ -106,29 +126,30 @@ in
 
   systemd.tmpfiles.rules = [ "d ${repoDir} 0700 root root -" ];
 
-  # One watcher per service; PathChanged fires on close-after-write.
+  # One watcher per service; PathChanged fires on close-after-write (for
+  # a directory: on any entry created, removed or written).
   systemd.paths = lib.mapAttrs' (
-    svc: file:
+    svc: files:
     lib.nameValuePair "config-history-${svc}" {
       wantedBy = [ "multi-user.target" ];
-      pathConfig.PathChanged = file;
+      pathConfig.PathChanged = files;
     }
-  ) watched;
+  ) watchedPaths;
 
   systemd.services =
     lib.mapAttrs' (
-      svc: file:
+      svc: files:
       lib.nameValuePair "config-history-${svc}" {
         serviceConfig = {
           Type = "oneshot";
-          ExecStart = "${lib.getExe commit} ${svc} ${file} 'runtime change'";
+          ExecStart = "${lib.getExe commit} ${svc} 'runtime change' ${lib.escapeShellArgs files}";
         };
       }
-    ) watched
+    ) watchedPaths
     # Baseline commit on every service start ("+" = run as root since the
     # repo is root-only; "-" = a journaling failure must never fail the
     # service itself, which would make deploy-rs roll back the whole deploy).
-    // lib.mapAttrs (svc: file: {
-      serviceConfig.ExecStartPost = "-+${lib.getExe commit} ${svc} ${file} 'baseline (service start)'";
-    }) watched;
+    // lib.mapAttrs (svc: files: {
+      serviceConfig.ExecStartPost = "-+${lib.getExe commit} ${svc} 'baseline (service start)' ${lib.escapeShellArgs files}";
+    }) watchedPaths;
 }

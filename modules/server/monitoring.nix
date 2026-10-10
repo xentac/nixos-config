@@ -471,6 +471,10 @@ in
               replacement = "signalk_$1";
             }
           ];
+          # Still the docker VM's instance while the local one
+          # (signalk.nix) is being configured side by side. Cutover =
+          # target "127.0.0.1:3000", scheme "http" (docs/alba-nix.md,
+          # phase 3a); not both at once or every series doubles.
           static_configs = [
             {
               targets = [
@@ -507,7 +511,10 @@ in
     enable = true;
     settings.server = {
       http_addr = "127.0.0.1";
-      http_port = 3000;
+      # Not grafana's default 3000: that port belongs to Signal K
+      # (signalk.nix), whose LAN clients assume it. Nobody types
+      # grafana's port — caddy.nix reads it from here.
+      http_port = 3001;
       # Served via caddy.nix on the tailnet; Grafana wants to know its
       # public name for redirects/cookies.
       domain = "alba-grafana.stalk-darter.ts.net";

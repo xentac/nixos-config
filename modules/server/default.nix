@@ -8,5 +8,6 @@
     ./monitoring.nix
     ./backups.nix
     ./fava.nix
+    ./signalk.nix
   ];
 }

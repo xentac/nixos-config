@@ -1,6 +1,7 @@
 # 0001 — Media stack as native NixOS services, not containers
 
-Date: 2026-09-13. Status: accepted.
+Date: 2026-09-13. Status: accepted; amended by 0005 (Signal K is the
+one container).
 
 ## Context
 

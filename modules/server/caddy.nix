@@ -16,16 +16,21 @@
 }:
 let
   tailnetDomain = "stalk-darter.ts.net";
-  # tailnet-name -> backend. All local today; "host:port" works for
-  # cross-host backends too.
+  # tailnet-name -> backend. "host:port" works for cross-host backends
+  # too (victron-signalk is one).
   published = {
     sonarr = "127.0.0.1:8989";
     radarr = "127.0.0.1:7878";
     sabnzbd = "127.0.0.1:8080";
     whisparr = "127.0.0.1:6969";
     stash = "127.0.0.1:9999";
-    alba-grafana = "127.0.0.1:3000";
+    alba-grafana = "127.0.0.1:${toString config.services.grafana.settings.server.http_port}";
     fava = "127.0.0.1:5000"; # fava.nix; finances — restrict the node in the tailnet ACL
+    signalk = "127.0.0.1:3000"; # signalk.nix; also open on the LAN for boat apps
+    # The Signal K built into the Victron GX (Venus OS): signalk's only
+    # data source. An appliance with a DHCP-ish address — update here
+    # when it moves. Its name used to be `signalk` on tsdproxy.
+    victron-signalk = "192.168.1.207:3000";
   };
 in
 {

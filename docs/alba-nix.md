@@ -4,7 +4,8 @@ The boat-services VM. Design context: `CONTEXT.md` (vocabulary) and
 `docs/adr/0001`–`0004` (why it's shaped this way). This file is the
 do-it order of operations. Phase 1 scope: sabnzbd + sonarr + radarr +
 whisparr + stash, SMB libraries from vault, self-monitoring, restic to
-B2. qbittorrent + AirVPN is phase 2; absorbing the docker VM is later.
+B2. qbittorrent + AirVPN is phase 2; absorbing the docker VM is phase 3
+(3a = Signal K, below).
 
 ## 1. One-time preparation (appliances, web consoles)
 
@@ -118,6 +119,54 @@ sops-managed login (kid-proofing layer 4).
    via the wrapper shows it; restore one DB file to /tmp and open it.
 6. Reboot with vault powered off/unreachable: VM boots, services start
    (mounts are nofail/automount), Grafana shows the gap.
+
+## Phase 3a: Signal K (+ Node-RED) off the docker VM
+
+Design: `docs/adr/0005`, `modules/server/signalk.nix`. Fresh state —
+the old `.signalk` is a reference, not a source: reconfigure by hand with
+both instances running and prune what you don't use. The only input is
+victron-signalk (the GX's Signal K); the only sink is VictoriaMetrics.
+InfluxDB stays on the docker VM as a read-only archive and does not get
+an output plugin on the new instance.
+
+1. **Free the name.** Already done: tsdproxy's `signalk` entry (the
+   Victron's) removed and its node deleted in the Tailscale admin
+   console. That name now belongs to the new instance; the Victron's is
+   `victron-signalk`, served by caddy.nix as a cross-host backend
+   (update the IP there when the GX moves).
+2. **Deploy.** `just deploy alba-nix` brings up signalk.service (pulls
+   the image on first start — needs internet), grafana on 3001, the
+   `signalk` and `victron-signalk` tailnet nodes. Check:
+   `https://signalk.stalk-darter.ts.net` and `http://192.168.1.23:3000`
+   both answer; `avahi-browse -t _signalk-http._tcp` (or a boat app's
+   server list) shows it from a LAN device.
+3. **First run, in the Admin UI.** Create the admin user (prompted on
+   first visit; it lands in `security.json` — journaled and backed up,
+   no sops). Server → Settings: vessel name/MMSI, mDNS on, keep port
+   3000. Server → Data Connections: add a *Signal K* connection to
+   `http://192.168.1.207:3000` (victron-signalk) — same as on the old
+   instance. Appstore: install the plugins you still want, including
+   `@signalk/signalk-node-red`; Restart after each batch (the unit is
+   `Restart=always` for exactly this).
+4. **Compare side by side** against `signalk2`: Data Browser shows the
+   same paths; `curl -s localhost:3000/signalk/v1/api/prometheus | sort`
+   vs the same from `signalk2.stalk-darter.ts.net` — every metric the
+   dashboards use (boat-internals, anchor, sailing) must be in both.
+   Re-approve boat apps/devices as they connect (Security → Access
+   Requests); the old tokens are not carried over. Node-RED flows:
+   rebuild in the embedded editor (`/plugins/signalk-node-red/redAdmin`)
+   — there is no standalone Node-RED to migrate.
+5. **Cutover**, one commit: in `monitoring.nix` point the `signalk`
+   scrape at `127.0.0.1:3000`, `scheme = "http"`; remove `signalk2` from
+   tsdproxy on the docker VM and delete its node. Deploy. Stop the old
+   container; keep its `.signalk` dir a month for "what was that
+   setting" lookups.
+6. `just drift-config alba-nix signalk` shows every UI edit since the
+   last restart, same as the media services.
+
+Updating: the version is the tag in `signalk.nix` (the Admin UI
+footer says when a new one exists). Bump, `just deploy`. Plugins update
+through the Appstore as before.
 
 ## Phase 2 (when ready): qbittorrent + AirVPN
 
