@@ -58,9 +58,16 @@ in
       # resolve the home dir to "/"; the server derives ~/.signalk from it.
       HOME = "/home/node";
     };
-    # --init: upstream's own run command uses it (zombie reaping for the
-    # npm children the Appstore spawns).
-    extraOptions = [ "--init" ];
+    extraOptions = [
+      # Upstream's own run command uses it (zombie reaping for the npm
+      # children the Appstore spawns).
+      "--init"
+      # The image's /home/node is 0750 node:node, so a foreign uid can't
+      # even reach the entrypoint ("catatonit: failed to exec pid1:
+      # Permission denied"). Supplementary gid 1000 = the image's `node`
+      # group, enough to traverse; files we write are still 980:980.
+      "--group-add=1000"
+    ];
     # Pinned tag: "missing" means a new tag pulls once, and nothing else
     # ever does.
     pull = "missing";
