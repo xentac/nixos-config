@@ -45,6 +45,20 @@ deploy-boot target="alba-nix":
 drift-config target="alba-nix" *svcs="":
     ssh root@{{target}} config-drift {{svcs}}
 
+# donatello's LUKS devices (cryptroot, cryptswap); UUIDs from
+# hosts/donatello/hardware-configuration.nix. Enrolls the new TPM2+PIN
+# token, then wipes the old TPM2 token; asks for the LUKS passphrase
+# and a new PIN per device (use the same PIN for both). Reboot to test.
+# (Re-)enroll TPM2 + PIN unlock for donatello's LUKS devices
+tpm-enroll:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for uuid in 7d26cd14-9158-420f-920b-d69fd2fbdd28 84b6169e-d6ec-4910-9a5e-91518ceca6f6; do
+        echo "== /dev/disk/by-uuid/$uuid"
+        sudo systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto \
+            --tpm2-pcrs=7 --tpm2-with-pin=yes "/dev/disk/by-uuid/$uuid"
+    done
+
 # Move all inputs (nixpkgs, nixos-hardware) to their latest commits
 update:
     nix flake update

@@ -34,11 +34,15 @@
   # then resume through the LUKS unlock with the session intact).
   boot.resumeDevice = "/dev/mapper/cryptswap";
 
-  # Unlock LUKS from the TPM at boot (no passphrase prompt). Harmless until a
-  # key is enrolled — it falls back to the passphrase. Enroll once per device:
-  #   sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 /dev/disk/by-uuid/<uuid>
-  # (UUIDs are in hardware-configuration.nix; the passphrase stays as fallback.
-  # PCR 7 = Secure Boot state, so kernel/BIOS updates don't force re-enrolling.)
+  # Unlock LUKS from the TPM + a PIN at boot. Enrollment is imperative and
+  # per device: `just tpm-enroll` (re-)enrolls both with a PIN; the
+  # passphrase stays as fallback. systemd-cryptsetup asks for the PIN by
+  # itself when the token needs one (systemd initrd, modules/desktop/boot.nix).
+  # TPM-only (no PIN) was weak on this machine: Secure Boot is off, so
+  # PCR 7 (the only one bound) reads the same whatever boots, and any OS
+  # off a USB stick could ask the TPM for the key. The PIN closes that;
+  # the TPM's dictionary-attack lockout rate-limits guessing it.
+  # PCR 7 = Secure Boot state, so kernel/BIOS updates don't force re-enrolling.
   boot.initrd.luks.devices."cryptroot".crypttabExtraOpts = [ "tpm2-device=auto" ];
   boot.initrd.luks.devices."cryptswap".crypttabExtraOpts = [ "tpm2-device=auto" ];
 
