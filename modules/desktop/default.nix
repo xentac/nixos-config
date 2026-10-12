@@ -11,6 +11,7 @@
     ./audio.nix
     ./hardware-extras.nix
     ./virtualisation.nix
+    ./whonix.nix
     ./development.nix
     ./fonts.nix
     ./apps.nix

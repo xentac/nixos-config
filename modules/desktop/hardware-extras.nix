@@ -88,6 +88,7 @@
     exfatprogs
     ntfs3g
     btrfs-progs
+    e2fsprogs # chattr/lsattr (e.g. +C for NOCOW VM images); not pulled in on btrfs-only hosts
     gparted
   ];
 }

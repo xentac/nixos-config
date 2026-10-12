@@ -21,7 +21,8 @@ restore-from-backup runbook (read data elsewhere, or rebuild a host
 from scratch with just this repo and the age key);
 [docs/grafana-dashboards.md](docs/grafana-dashboards.md) is
 the edit-in-UI → export → commit round-trip for the provisioned
-Grafana dashboards.
+Grafana dashboards; [docs/whonix.md](docs/whonix.md) sets up the
+Whonix Gateway/Workstation VMs on donatello.
 
 ## Status
 
