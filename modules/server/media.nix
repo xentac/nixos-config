@@ -16,6 +16,7 @@
 # stash and whisparr are tailnet-ONLY (kid-proofing).
 {
   config,
+  inputs,
   lib,
   pkgs,
   ...
@@ -195,7 +196,13 @@
     # baxter's stash DB is schema 85 (stash 0.31.x); nixpkgs is stuck on
     # 0.29.1 (schema 72) and stash can't downgrade. Vendored bump — see
     # pkgs/stash/package.nix for when it can be dropped.
-    package = pkgs.callPackage ../../pkgs/stash/package.nix { };
+    #
+    # pnpm_10 comes from nixpkgs-unstable: 26.05's 10.34.0 is marked
+    # insecure (CVE-2026-55487 et al.) and refuses to evaluate; unstable
+    # carries the patched 10.34.5. Drop the override once stable catches up.
+    package = pkgs.callPackage ../../pkgs/stash/package.nix {
+      inherit (inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}) pnpm_10;
+    };
     group = "adult";
     # Built-in auth is mandatory here (kid-proofing layer 4): username +
     # password required even on the tailnet.

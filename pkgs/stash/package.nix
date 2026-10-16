@@ -12,6 +12,9 @@
   lib,
   nixosTests,
   nodejs,
+  # Stash pins pnpm 10.x in package.json. nixos-26.05's pnpm_10 (10.34.0)
+  # is marked insecure (CVE-2026-55487 et al.), so media.nix passes the
+  # patched 10.34.5 from nixpkgs-unstable here instead.
   pnpm_10,
   pnpmConfigHook,
   stash,

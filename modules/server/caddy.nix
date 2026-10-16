@@ -58,9 +58,11 @@ in
     # Must be >= 2025-11-17 (PR #116): older plugin builds vendor a tsnet
     # that can't exchange OAuth client secrets for auth keys ("invalid
     # key: unable to validate API key").
+    # The hash also changes whenever nixpkgs bumps caddy itself (it covers
+    # caddy's own go.sum too) — a flake-lock update can invalidate it.
     package = pkgs.caddy.withPlugins {
       plugins = [ "github.com/tailscale/caddy-tailscale@v0.0.0-20260826180304-de41b249af4f" ];
-      hash = "sha256-IzLM8Qgxurrgs6NBygGEGyzXQUxQMPP3Y6iIWVN5ZvQ=";
+      hash = "sha256-OzzyBF/SA1WkX/g+WOwvZo2t5bfeNPOeYJ1ziOLlTTk=";
     };
 
     globalConfig = ''
