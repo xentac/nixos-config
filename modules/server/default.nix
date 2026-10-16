@@ -9,5 +9,6 @@
     ./backups.nix
     ./fava.nix
     ./signalk.nix
+    ./lubelogger.nix
   ];
 }
