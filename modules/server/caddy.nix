@@ -27,6 +27,7 @@ let
     alba-grafana = "127.0.0.1:${toString config.services.grafana.settings.server.http_port}";
     fava = "127.0.0.1:5000"; # fava.nix; finances — restrict the node in the tailnet ACL
     lubelogger = "127.0.0.1:${toString config.services.lubelogger.port}"; # lubelogger.nix; restrict the node in the tailnet ACL
+    calibre-web = "127.0.0.1:${toString config.services.calibre-web.listen.port}"; # calibre-web.nix
     signalk = "127.0.0.1:3000"; # signalk.nix; also open on the LAN for boat apps
     # The Signal K built into the Victron GX (Venus OS): signalk's only
     # data source. An appliance with a DHCP-ish address — update here

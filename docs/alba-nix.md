@@ -31,9 +31,22 @@ B2. qbittorrent + AirVPN is phase 2; absorbing the docker VM is phase 3
   clones, or fresh clone + `git annex sync --content`; the homes copy
   can stay as an extra annex remote).
 - Install git-annex on DSM (community package, or a minimal container)
-  and add an hourly Task Scheduler job for each working tree
-  (`media/Videos`, `adult`):
-  `cd <tree> && git annex add . && git annex sync`
+  and add an hourly Task Scheduler job **run as root** for each working
+  tree (`/volume1/media/Videos`, `/volume1/adult/adult`):
+
+  ```sh
+  tree=/volume1/adult/adult
+  find "$tree" -path "$tree/.git" -prune -o ! -user xentac -exec chown xentac:users {} +
+  sudo -u xentac sh -c "umask 022; cd '$tree' && git annex add . && git annex sync"
+  ```
+
+  Imports from alba-nix land owned by `svc-alba-nix`. `git annex add`
+  chmods each file as it freezes it, and only the owner can chmod. The
+  share ACL lets xentac read and write but not change permissions (no
+  `C`), so the job chowns new files to xentac first. git itself runs as
+  xentac: root-owned files in `.git` would break donatello's syncs. The
+  chown leaves the inherited ACL alone, so the service account keeps
+  access.
 - The B2 side: create an application key scoped to bucket
   `backups-xentac`, prefix `restic/alba-nix/`.
 
@@ -167,6 +180,59 @@ an output plugin on the new instance.
 Updating: the version is the tag in `signalk.nix` (the Admin UI
 footer says when a new one exists). Bump, `just deploy`. Plugins update
 through the Appstore as before.
+
+## Phase 3b: calibre-web off the docker VM
+
+Design: `modules/server/calibre-web.nix` (read-only `/books` mount in
+`mounts.nix`). Books are single-writer: calibre on donatello edits, the
+git-annex assistant pushes to vault, and alba-nix only reads vault's
+checkout.
+
+1. **vault (DSM).** Create a shared folder `calibre`: xentac read/write,
+   the service account (`svc-alba-nix`) **read-only**. The repo lives at
+   `/volume1/calibre/calibre`, one level below the share root, and
+   `mounts.nix` mounts that subdirectory as `/books`. Move it there from
+   `homes/xentac/calibre`, or clone it fresh and `git annex sync
+   --content`. On donatello: `git -C ~/calibre remote set-url vault
+   vault-annex:/volume1/calibre/calibre`, restart the assistant so it picks up
+   the new URL (`just assistant-stop && just assistant-start` in
+   `~/calibre`), then `git annex sync` to check it still talks to vault.
+2. **Keep vault's checkout current.** Add an hourly Task Scheduler job
+   `umask 022; cd /volume1/calibre/calibre && git annex sync --no-commit
+   --no-pull --no-push`.
+   The umask matters: DSM's default is 077, which checks out author
+   directories (and the unlocked metadata.db) unreadable to the service
+   account. Fix an existing tree with `find . -path ./.git -prune -o !
+   -type l -exec chmod go+rX {} +`. The flags make it a local merge only:
+   nobody writes into this checkout (no `add`, no commit), and it never
+   talks to vault's own remotes. It still merges `synced/master` and
+   `synced/git-annex`, which is the point.
+   Without it vault's `master` never advances. As of Oct 2026 it was
+   still at Apr 11 (in donatello's last-fetched view) while
+   `synced/master` had donatello's latest, so the docker calibre-web is
+   almost certainly showing an April library too. Check: `git -C ~/calibre fetch vault && git -C
+   ~/calibre log -1 vault/master` matches local `master`.
+3. **Migrate state.** Stop the docker container and copy its
+   `/config/app.db` (and `gdrive.db` if present) to
+   `/var/lib/calibre-web/`, then `chown -R calibre-web:calibre-web`.
+   The unit rewrites the library path, port and upload flag in app.db
+   at every start, so the container's `/books` setting doesn't matter.
+   Skip the copy for a fresh start: the first login is `admin` /
+   `admin123`, so change it right away.
+4. **Free the name and deploy.** Remove the container's tsdproxy entry
+   and delete its node in the Tailscale admin console if it was
+   called `calibre-web`, then `just deploy alba-nix`.
+5. **Check.** `https://calibre-web.stalk-darter.ts.net` lists the
+   library and a book downloads and opens in the reader. In Admin →
+   Users, every user has Edit/Upload/Delete unticked. `sudo -u
+   calibre-web touch /books/x` fails with "Read-only file system". Kobo
+   or OPDS clients need their URL updated.
+6. **End to end.** Add a book in calibre on donatello and close calibre
+   (the assistant commits on close). After the next vault job, the book
+   shows up in calibre-web *without* restarting it. If it doesn't,
+   calibre-web is holding the replaced metadata.db open. Try Admin →
+   Reconnect Calibre Database, and if that works, add a timer that does
+   the same (or restarts the unit) just after the vault job.
 
 ## Phase 2 (when ready): qbittorrent + AirVPN
 

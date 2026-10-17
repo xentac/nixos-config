@@ -10,5 +10,6 @@
     ./fava.nix
     ./signalk.nix
     ./lubelogger.nix
+    ./calibre-web.nix
   ];
 }

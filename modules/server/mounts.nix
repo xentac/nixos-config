@@ -15,6 +15,10 @@
 # (kid-proofing layer 2); layer 1 is the share's own ACL on vault, which
 # only the dedicated service account (whose credentials are in sops) and
 # xentac can open.
+#
+# /books is the calibre library, also an annex working tree on vault but
+# single-writer: calibre on donatello is the only thing that may change
+# it, so this mount is read-only for everyone (calibre-web.nix).
 { config, pkgs, ... }:
 let
   vault = "192.168.1.223";
@@ -59,6 +63,21 @@ in
       # Group rw so whisparr and stash can write; NO access for "other".
       "file_mode=0660"
       "dir_mode=0770"
+    ];
+  };
+
+  fileSystems."/books" = {
+    device = "//${vault}/calibre/calibre";
+    fsType = "cifs";
+    options = common ++ [
+      "ro"
+      # calibre-web reads metadata.db with SQLite; SMB byte-range locks
+      # make that fail with "database is locked". Nothing writes here, so
+      # client-local locks are enough.
+      "nobrl"
+      "gid=calibre-web"
+      "file_mode=0440"
+      "dir_mode=0550"
     ];
   };
 }
