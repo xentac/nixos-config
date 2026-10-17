@@ -53,9 +53,10 @@ B2. qbittorrent + AirVPN is phase 2; absorbing the docker VM is phase 3
 **Tailscale admin console**:
 
 - Create an auth key (or OAuth client) for the caddy tsnet nodes;
-  it will register: sonarr, radarr, sabnzbd, whisparr, stash, grafana.
-- ACL: deny kid/tagged devices access to the `stash` and `whisparr`
-  nodes (allow only your own devices).
+  it will register: sonarr, radarr, sabnzbd, whisparr-scenes,
+  whisparr-movies, stash, grafana.
+- ACL: deny kid/tagged devices access to the `stash`, `whisparr-scenes`
+  and `whisparr-movies` nodes (allow only your own devices).
 
 ## 2. Fill in secrets
 
@@ -118,9 +119,9 @@ sops-managed login (kid-proofing layer 4).
 
 ## 5. Acceptance tests
 
-1. All six names resolve and serve on the tailnet: sonarr, radarr,
-   sabnzbd, whisparr, stash, grafana.
-2. stash and whisparr are NOT reachable via 192.168.1.23:<port> (they
+1. All seven names resolve and serve on the tailnet: sonarr, radarr,
+   sabnzbd, whisparr-scenes, whisparr-movies, stash, grafana.
+2. stash and the whisparrs are NOT reachable via 192.168.1.23:<port> (they
    bind localhost), and not reachable from a kid device via tailnet
    (ACL).
 3. `sudo -u sonarr ls /adult` → permission denied;
@@ -233,6 +234,92 @@ checkout.
    calibre-web is holding the replaced metadata.db open. Try Admin →
    Reconnect Calibre Database, and if that works, add a timer that does
    the same (or restarts the unit) just after the vault job.
+
+## Two whisparrs: scenes and movies
+
+Design: docs/adr/0006 and `modules/server/whisparr.nix`. v2 becomes
+`whisparr-scenes` (root `/adult/scenes`), v3 is the new
+`whisparr-movies` (root `/adult/movies`). Do the steps in order.
+
+1. **Tailscale ACL first.** Add `whisparr-scenes` and
+   `whisparr-movies` to the kid-device deny rule next to `stash`, so
+   the new nodes are never reachable from a kid device, even briefly.
+2. **Quiesce.** In whisparr's UI, go to Settings → Media Management and
+   check that "Unmonitor Deleted Episodes" is **off**. Otherwise a
+   rescan during the move would unmonitor every scene. Then `systemctl
+   stop whisparr` on alba-nix, and on vault disable the hourly annex
+   job for `/volume1/adult/adult`.
+3. **Restructure `/adult` on vault.** Run this as xentac, the owner of
+   `.git`. Run the annex job's `git annex add . && git annex sync` once
+   by hand first, so the tree is clean (`git status` empty). Then:
+
+   ```sh
+   umask 022   # DSM's default 077 would make scenes/ untraversable for svc-alba-nix
+   cd /volume1/adult/adult
+   mkdir scenes
+   # dry run: review the list, delete any line that isn't a site folder
+   for d in */; do [ "$d" = scenes/ ] || printf 'git mv "%s" scenes/\n' "${d%/}"; done > /tmp/mv.sh
+   sh /tmp/mv.sh
+   git commit -m "Move site folders under scenes/"
+   find scenes -xtype l | head   # must print nothing
+   ```
+
+   Moving a site down one level would break its annex symlinks (they
+   are relative). The commit's annex pre-commit hook rewrites them,
+   which is why this has to be a `git mv` on vault and never a move
+   from whisparr or over SMB. If `find` prints anything, run `git annex
+   fix scenes` and commit. Re-enable the annex job.
+4. **Deploy and move whisparr's state.** `just deploy alba-nix` starts
+   both new units, and whisparr-scenes starts out with an empty DB.
+   Stop it straight away and swap in the old state:
+
+   ```bash
+   systemctl stop whisparr-scenes
+   rm -rf /var/lib/whisparr-scenes
+   mv /var/lib/whisparr/.config/Whisparr /var/lib/whisparr-scenes
+   chown -R whisparr-scenes:media /var/lib/whisparr-scenes
+   chmod 700 /var/lib/whisparr-scenes
+   systemctl start whisparr-scenes
+   ```
+
+   In the Tailscale admin console, delete the old `whisparr` node.
+5. **Repoint whisparr-scenes** (`https://whisparr-scenes.stalk-darter.ts.net`)
+   right after step 4. Until this is done, every site's path points at
+   a folder that no longer exists, so a scheduled rescan would mark
+   scenes missing and the next RSS sync would grab them again. If you
+   can't do it immediately, disable the sab download client first and
+   turn it back on after the rescan below. The old login still works.
+   Order matters, because the mass editor only offers registered root
+   folders:
+   1. Settings → Media Management → Root Folders: add `/adult/scenes`.
+   2. Series → Select All → Edit → Root Folder `/adult/scenes` →
+      **"No, I'll move the files myself"**.
+   3. Remove the old `/adult` root folder (otherwise `scenes/` and
+      `movies/` show up as unmapped folders).
+   4. Settings → Download Clients: change sab's category to
+      `adult-scenes`.
+   5. Refresh & Scan all: no scene should show as missing.
+6. **Set up whisparr-movies** (`https://whisparr-movies.stalk-darter.ts.net`).
+   First start asks you to create a login, so use forms auth like the
+   others. Create the root folder with `sudo -u whisparr-movies mkdir
+   /adult/movies`, then add it under Settings → Media Management. Add
+   the download client: sabnzbd, host `127.0.0.1`, port 8080, URL base
+   `/sabnzbd`, sab's API key, category `adult-movies`. Copy the
+   indexers over from whisparr-scenes by hand. **Movies only**: never
+   add a studio or performer here (docs/adr/0006).
+7. **Stash.** Run a scan on `/adult`. Moved scenes are matched by
+   fingerprint and keep their metadata, so nothing should turn up as
+   new. Under Settings → Metadata Providers, ThePornDB is listed and
+   its test passes. Grab a movie from whisparr-movies and run Identify
+   on it with ThePornDB. If TPDB's stash-box only returns scenes,
+   attach the movie to a Group with the community TPDB scraper instead.
+8. **Check.** `ss -ltnp | grep -E ':(6969|6970) '` shows two different
+   processes, both on 127.0.0.1 (v3's port comes only from the env
+   override). `sudo -u whisparr-movies ls /adult` works and `sudo -u
+   sonarr ls /adult` is denied.
+9. **Later cleanup.** When nothing in sab's queue or history uses the
+   `adult` category, remove it from `media.nix`. After a week of
+   whisparr-scenes working fine, delete `/var/lib/whisparr`.
 
 ## Phase 2 (when ready): qbittorrent + AirVPN
 

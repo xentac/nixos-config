@@ -196,7 +196,7 @@ The shape is the same for both hosts:
 
    ```bash
    ssh root@192.168.1.23
-   systemctl stop sonarr radarr whisparr sabnzbd stash grafana \
+   systemctl stop sonarr radarr whisparr-scenes whisparr-movies sabnzbd stash grafana \
        victoriametrics victorialogs caddy
 
    # credentials as in step 0 (or scp /tmp/restic.env + .pw over)
@@ -205,7 +205,7 @@ The shape is the same for both hosts:
 
    # uid/gid numbers from the old install may not match the new one
    # (groups per media.nix: arrs + sab are :media, stash is :adult):
-   for svc in sonarr radarr whisparr sabnzbd; do
+   for svc in sonarr radarr whisparr-scenes whisparr-movies sabnzbd; do
        chown -R "$svc:media" "/var/lib/$svc"
    done
    chown -R stash:adult /var/lib/stash

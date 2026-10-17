@@ -23,9 +23,18 @@ Canonical vocabulary for this repo. Terms only — design decisions live in
 - **integrated into the annex** — the end state of a download: imported
   into an annex-backed library over SMB and then annexed by vault's
   scheduled job. Until then a file in `/downloads` is temporary scratch.
+- **scene** — a single release from an adult site; lives under
+  `/adult/scenes/<site>/`. A site is tracked like a series, its scenes
+  like episodes.
+- **movie** — a full-length adult release, not tied to a site's scene
+  feed; lives under `/adult/movies/`. Scenes and movies are tracked by
+  separate instances and never both by one.
 - **media / adult** — the two permission domains on alba-nix. `media`
-  (sabnzbd, sonarr, radarr, whisparr) shares `/downloads` and `/Videos`;
-  `adult` (whisparr, stash) is the only group able to traverse `/adult`.
+  (sabnzbd, sonarr, radarr, both whisparrs) shares `/downloads` and
+  `/Videos`; `adult` (whisparr-scenes, whisparr-movies, stash) is the
+  only group able to traverse `/adult`.
+- **whisparr-scenes / whisparr-movies** — the two Whisparr instances:
+  one tracks sites and their scenes, the other only movies.
 - **published service** — a service given its own tailnet hostname by the
   caddy-tailscale layer (`modules/server/caddy.nix`).
 - **docker-vm** — the Ubuntu VM on Alba's Proxmox that runs the legacy

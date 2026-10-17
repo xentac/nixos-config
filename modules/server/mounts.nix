@@ -60,7 +60,7 @@ in
     fsType = "cifs";
     options = common ++ [
       "gid=adult"
-      # Group rw so whisparr and stash can write; NO access for "other".
+      # Group rw so the whisparrs and stash can write; NO access for "other".
       "file_mode=0660"
       "dir_mode=0770"
     ];

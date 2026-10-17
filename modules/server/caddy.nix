@@ -3,7 +3,7 @@
 # an embedded tsnet node — the declarative successor to tsdproxy's docker
 # labels. Adding a service = one line in `published` below.
 #
-# stash and whisparr appear ONLY here (they bind 127.0.0.1): reaching them
+# stash and the whisparrs appear ONLY here (they bind 127.0.0.1): reaching them
 # requires the tailnet, and the tailnet ACL denies kid devices those nodes
 # (kid-proofing layer 3). tsnet nodes are location-independent, so this
 # Caddy can also front cross-host backends later (e.g. services still on
@@ -22,7 +22,8 @@ let
     sonarr = "127.0.0.1:8989";
     radarr = "127.0.0.1:7878";
     sabnzbd = "127.0.0.1:8080";
-    whisparr = "127.0.0.1:6969";
+    whisparr-scenes = "127.0.0.1:6969"; # whisparr.nix
+    whisparr-movies = "127.0.0.1:6970"; # whisparr.nix
     stash = "127.0.0.1:9999";
     alba-grafana = "127.0.0.1:${toString config.services.grafana.settings.server.http_port}";
     fava = "127.0.0.1:5000"; # fava.nix; finances — restrict the node in the tailnet ACL

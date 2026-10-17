@@ -4,16 +4,19 @@
 # (lib is used for mkForce on UMask below: the servarr modules hardcode
 # a 0022 UMask we need to override for the shared /downloads tree.)
 #
-#   media  — sabnzbd, sonarr, radarr, whisparr: share /downloads and the
-#            /Videos mount (mounts.nix forces gid=media there).
-#   adult  — whisparr, stash: the only members, and therefore the only
-#            users able to traverse the /adult mount (gid=adult, 0770).
+#   media  — sabnzbd, sonarr, radarr, both whisparrs: share /downloads
+#            and the /Videos mount (mounts.nix forces gid=media there).
+#   adult  — whisparr-scenes, whisparr-movies, stash: the only members,
+#            and therefore the only users able to traverse the /adult
+#            mount (gid=adult, 0770).
+#
+# The two whisparr instances are defined in whisparr.nix.
 #
 # The library mounts are git-annex working trees owned by vault; these
 # services just read/write plain files over SMB and vault's scheduled job
 # annexes new arrivals (docs/adr/0002). Web exposure is caddy.nix's job:
 # everything here binds localhost and is published under a tailnet name;
-# stash and whisparr are tailnet-ONLY (kid-proofing).
+# stash and the whisparrs are tailnet-ONLY (kid-proofing).
 {
   config,
   inputs,
@@ -134,9 +137,23 @@
           order = 5;
           priority = -100;
         };
+        # whisparr-scenes' old category. Remove once nothing in sab's
+        # queue/history still uses it (docs/alba-nix.md).
         adult = {
           name = "adult";
           order = 6;
+          priority = -100;
+        };
+        # One category per whisparr instance, so neither sees the
+        # other's jobs in its queue.
+        adult-scenes = {
+          name = "adult-scenes";
+          order = 7;
+          priority = -100;
+        };
+        adult-movies = {
+          name = "adult-movies";
+          order = 8;
           priority = -100;
         };
       };
@@ -163,20 +180,12 @@
     openFirewall = true; # 7878
   };
 
-  services.whisparr = {
-    enable = true;
-    group = "media"; # /downloads access; adult via extraGroups below
-    settings.server.bindaddress = "127.0.0.1"; # tailnet-only via caddy; never LAN
-  };
-  users.users.whisparr.extraGroups = [ "adult" ];
-
   # sab must bind LAN-reachable (it has its own API-key auth); the arrs
   # keep forms auth from the migrated configs. UMask so files written to
   # /downloads stay group-writable for the next service in the pipeline.
   systemd.services.sabnzbd.serviceConfig.UMask = lib.mkForce "0002";
   systemd.services.sonarr.serviceConfig.UMask = lib.mkForce "0002";
   systemd.services.radarr.serviceConfig.UMask = lib.mkForce "0002";
-  systemd.services.whisparr.serviceConfig.UMask = lib.mkForce "0002";
 
   sops.secrets."stash/password" = {
     owner = "stash";
@@ -188,6 +197,9 @@
     owner = "stash";
   };
   sops.secrets."stash/stashdb_api_key" = {
+    owner = "stash";
+  };
+  sops.secrets."stash/tpdb_api_key" = {
     owner = "stash";
   };
 
@@ -265,9 +277,16 @@
           endpoint = "https://stashdb.org/graphql";
           # The module writes settings verbatim into the nix store, so
           # the real key can't live here; the ExecStartPre below swaps
-          # this placeholder for the sops secret — same trick the module
+          # each placeholder for the sops secret — same trick the module
           # itself plays for password/jwt/session_key.
           apikey = "@STASHDB_API_KEY@";
+        }
+        # Mostly for movies: StashDB is scene-centric, TPDB also has
+        # full-length movie metadata.
+        {
+          name = "ThePornDB";
+          endpoint = "https://theporndb.net/graphql";
+          apikey = "@TPDB_API_KEY@";
         }
       ];
     };
@@ -280,13 +299,15 @@
   # (plain rename) stays inside the sandbox, like the module's own yq.
   systemd.services.stash.serviceConfig.ExecStartPre = lib.mkAfter [
     (toString (
-      pkgs.writeShellScript "stash-inject-stashdb-key" ''
+      pkgs.writeShellScript "stash-inject-stash-box-keys" ''
         set -euo pipefail
         cfg=/var/lib/stash/config.yml
-        APIKEY=$(< ${config.sops.secrets."stash/stashdb_api_key".path}) \
-          ${lib.getExe pkgs.yq-go} \
-          '(.stash_boxes[] | select(.apikey == "@STASHDB_API_KEY@") | .apikey) = strenv(APIKEY)' \
-          "$cfg" > "$cfg.tmp"
+        STASHDB=$(< ${config.sops.secrets."stash/stashdb_api_key".path}) \
+        TPDB=$(< ${config.sops.secrets."stash/tpdb_api_key".path}) \
+          ${lib.getExe pkgs.yq-go} '
+            (.stash_boxes[] | select(.apikey == "@STASHDB_API_KEY@") | .apikey) = strenv(STASHDB) |
+            (.stash_boxes[] | select(.apikey == "@TPDB_API_KEY@") | .apikey) = strenv(TPDB)
+          ' "$cfg" > "$cfg.tmp"
         mv "$cfg.tmp" "$cfg"
       ''
     ))

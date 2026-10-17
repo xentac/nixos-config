@@ -2,6 +2,7 @@
 {
   imports = [
     ./media.nix
+    ./whisparr.nix
     ./config-history.nix
     ./mounts.nix
     ./caddy.nix

@@ -27,7 +27,8 @@ let
     sabnzbd = "/var/lib/sabnzbd/sabnzbd.ini";
     sonarr = "/var/lib/sonarr/.config/NzbDrone/config.xml";
     radarr = "/var/lib/radarr/.config/Radarr/config.xml";
-    whisparr = "/var/lib/whisparr/.config/Whisparr/config.xml";
+    whisparr-scenes = "/var/lib/whisparr-scenes/config.xml";
+    whisparr-movies = "/var/lib/whisparr-movies/config.xml";
     # regenerated each start from `settings` (mutableSettings = false),
     # so UI edits only survive here until the next restart — the journal
     # is what makes them recoverable.
