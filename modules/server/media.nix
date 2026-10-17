@@ -137,13 +137,6 @@
           order = 5;
           priority = -100;
         };
-        # whisparr-scenes' old category. Remove once nothing in sab's
-        # queue/history still uses it (docs/alba-nix.md).
-        adult = {
-          name = "adult";
-          order = 6;
-          priority = -100;
-        };
         # One category per whisparr instance, so neither sees the
         # other's jobs in its queue.
         adult-scenes = {
