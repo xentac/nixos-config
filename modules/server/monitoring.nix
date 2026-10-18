@@ -473,6 +473,17 @@ in
           # The local instance (signalk.nix). The docker VM's signalk2 is
           # retired; never scrape both or every series doubles.
           static_configs = [ { targets = [ "127.0.0.1:${toString config.alba.signalk.port}" ]; } ];
+          # Name the instance after the boat, not the scrape address:
+          # moving the server (docker VM -> alba-nix) otherwise forks
+          # every series, and the solar group_left joins go empty. The
+          # vessel itself is the `context` label (its MMSI). A second
+          # source on the same boat would need its own name (alba-gx).
+          relabel_configs = [
+            {
+              target_label = "instance";
+              replacement = "alba";
+            }
+          ];
         }
       ];
     };
