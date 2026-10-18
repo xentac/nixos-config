@@ -472,7 +472,7 @@ in
           ];
           # The local instance (signalk.nix). The docker VM's signalk2 is
           # retired; never scrape both or every series doubles.
-          static_configs = [ { targets = [ "127.0.0.1:3000" ]; } ];
+          static_configs = [ { targets = [ "127.0.0.1:${toString config.alba.signalk.port}" ]; } ];
         }
       ];
     };
