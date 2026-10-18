@@ -19,7 +19,7 @@
 # tailscale. caddy.nix also publishes it as the tailnet name "signalk".
 { config, lib, ... }:
 let
-  version = "2.33.0";
+  version = "2.34.0";
   inherit (config.alba.signalk) port;
   stateDir = "/var/lib/signalk";
   npmCache = "/var/cache/signalk/npm";
