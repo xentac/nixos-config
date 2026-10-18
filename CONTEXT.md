@@ -46,3 +46,11 @@ Canonical vocabulary for this repo. Terms only — design decisions live in
 - **victron-signalk** — the Signal K instance built into the Victron GX
   (Venus OS). The sole upstream source of boat data; an appliance,
   never configured from this repo.
+- **metered** — the state in which the boat's internet costs money per
+  byte (today: Starlink beyond territorial waters, drawing on paid
+  priority data). A property of the uplink, not of position: being
+  **offshore** is one input to it, and a manual override can force it
+  either way. Services that move bulk data stand down while metered.
+- **offshore** — the boat is outside territorial waters (beyond 12 nm),
+  as determined by signalk. A position fact; see *metered* for what
+  it costs.
