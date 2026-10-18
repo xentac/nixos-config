@@ -55,6 +55,12 @@
   # with quiesce.
   services.qemuGuest.enable = true;
 
+  # No disk swap, so under memory pressure the kernel could only evict
+  # file pages: stash thrashed its own code/DB pages back in off btrfs
+  # (~350 MB/s reads, wedged playback) until restarted. zram gives idle
+  # anonymous memory (the arrs) somewhere cheap to go instead.
+  zramSwap.enable = true;
+
   # Unlike the laptop (where authorized_keys is chezmoi-managed and the
   # password is set interactively at the console), a headless server must
   # bake its access path into the image: with no password, key-only sshd,
