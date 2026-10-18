@@ -458,7 +458,6 @@ in
         {
           job_name = "signalk";
           metrics_path = "/signalk/v1/api/prometheus";
-          scheme = "https";
           # The exporter emits mostly bare metric names (navigation_*,
           # sensors_*, environment_*); prefix them at scrape time so the
           # shared namespace stays legible. Its own signalk_prometheus_
@@ -471,17 +470,9 @@ in
               replacement = "signalk_$1";
             }
           ];
-          # Still the docker VM's instance while the local one
-          # (signalk.nix) is being configured side by side. Cutover =
-          # target "127.0.0.1:3000", scheme "http" (docs/alba-nix.md,
-          # phase 3a); not both at once or every series doubles.
-          static_configs = [
-            {
-              targets = [
-                "signalk2.stalk-darter.ts.net"
-              ];
-            }
-          ];
+          # The local instance (signalk.nix). The docker VM's signalk2 is
+          # retired; never scrape both or every series doubles.
+          static_configs = [ { targets = [ "127.0.0.1:3000" ]; } ];
         }
       ];
     };
