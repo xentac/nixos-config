@@ -469,6 +469,16 @@ in
               target_label = "__name__";
               replacement = "signalk_$1";
             }
+            # signalk-starlink publishes uptime as a string
+            # (itemir/signalk-starlink#10). The old
+            # exporter made each value a new value_str series (75k in a
+            # month); the new one parses it as a year. Useless either
+            # way, and no dashboard reads it.
+            {
+              source_labels = [ "__name__" ];
+              regex = "signalk_network_providers_starlink_uptime";
+              action = "drop";
+            }
           ];
           # The local instance (signalk.nix). The docker VM's signalk2 is
           # retired; never scrape both or every series doubles.
