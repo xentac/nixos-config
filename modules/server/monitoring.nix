@@ -620,6 +620,20 @@ in
     settings.Upload.URL = "http://127.0.0.1:9428/insert/journald";
   };
 
+  # The uploader dies when VictoriaLogs goes away, so a deploy that
+  # restarts VictoriaLogs leaves it failed and deploy-rs rolls back. Tie
+  # its lifecycle to VictoriaLogs instead: stopped with it (partOf),
+  # started after it, and pulled back in whenever it starts (wants).
+  # `requires` matters as much as `after`: switch-to-configuration starts
+  # each unit as its own job, and After= only orders jobs queued together,
+  # so the uploader's start must itself enqueue VictoriaLogs'.
+  systemd.services.systemd-journal-upload = {
+    after = [ "victorialogs.service" ];
+    requires = [ "victorialogs.service" ];
+    partOf = [ "victorialogs.service" ];
+  };
+  systemd.services.victorialogs.wants = [ "systemd-journal-upload.service" ];
+
   # VictoriaLogs is the long-term store; journald is just a recent buffer.
   services.journald.extraConfig = ''
     SystemMaxUse=500M
