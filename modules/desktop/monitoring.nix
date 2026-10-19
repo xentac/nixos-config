@@ -58,34 +58,42 @@ let
   # placeholders: prometheus-type inputs point at our VictoriaMetrics
   # datasource uid, constant inputs get their declared default. `replace`
   # is for patching author mistakes: literal string substitutions applied
-  # inside every string value of the dashboard JSON.
+  # inside every string value of the dashboard JSON. `jq` is an extra
+  # filter run last, for the rare fix that isn't a string substitution
+  # (e.g. one panel's unit).
   patchDashboard =
     name:
     {
       src,
       replace ? { },
+      jq ? ".",
     }:
     pkgs.runCommand name
       {
         inherit src;
         nativeBuildInputs = [ pkgs.jq ];
+        # Passed as a file, not inline in shell quotes: replace strings
+        # are PromQL and may contain quotes of either kind.
+        passAsFile = [ "filter" ];
+        filter = ''
+          reduce (.__inputs // [])[] as $i (.;
+            if $i.pluginId == "prometheus"
+            then walk(if . == ("''${" + $i.name + "}") then "victoriametrics" else . end)
+            elif $i.type == "constant"
+            then walk(if . == ("''${" + $i.name + "}") then $i.value else . end)
+            else . end)
+          | del(.__inputs)
+          ${lib.concatStrings (
+            lib.mapAttrsToList (
+              from: to:
+              "| walk(if type == \"string\" then (split(${builtins.toJSON from}) | join(${builtins.toJSON to})) else . end)\n"
+            ) replace
+          )}
+          | ${jq}
+        '';
       }
       ''
-        jq 'reduce (.__inputs // [])[] as $i (.;
-              if $i.pluginId == "prometheus"
-              then walk(if . == ("''${" + $i.name + "}") then "victoriametrics" else . end)
-              elif $i.type == "constant"
-              then walk(if . == ("''${" + $i.name + "}") then $i.value else . end)
-              else . end)
-            | del(.__inputs)
-            ${
-              lib.concatStrings (
-                lib.mapAttrsToList (
-                  from: to:
-                  "| walk(if type == \"string\" then (split(${builtins.toJSON from}) | join(${builtins.toJSON to})) else . end)"
-                ) replace
-              )
-            }' "$src" > "$out"
+        jq -f "$filterPath" "$src" > "$out"
       '';
 
   grafanaDashboard =
@@ -94,13 +102,14 @@ let
       rev,
       hash,
       replace ? { },
+      jq ? ".",
     }:
     patchDashboard "grafana-dashboard-${toString id}-rev${toString rev}.json" {
       src = pkgs.fetchurl {
         url = "https://grafana.com/api/dashboards/${toString id}/revisions/${toString rev}/download";
         inherit hash;
       };
-      inherit replace;
+      inherit replace jq;
     };
 
   dashboardsDir = pkgs.linkFarm "grafana-dashboards" [
@@ -117,6 +126,10 @@ let
         id = 1860;
         rev = 45;
         hash = "sha256-GExrdAnzBtp1Ul13cvcZRbEM6iOtFrXXjEaY6g6lGYY=";
+        # "Network Operational Status" filters node_network_up on an
+        # operstate label it doesn't carry (that's node_network_info's), so
+        # the panel is always empty. node_network_up is already 1/0 per device.
+        replace."node_network_up{operstate=\"up\"," = "node_network_up{";
       };
     }
     # SMART health for the NVMe drive (smartctl exporter below; desktop-
@@ -156,7 +169,11 @@ let
     # Same upstream-bug patch as the server: the two jitter queries
     # hardcode the author's own target instead of the dashboard's
     # template variables; rewrite them to the templated selector every
-    # other panel uses.
+    # other panel uses. Status History colours each cell by lost-ping
+    # COUNT (>=4 red), and caps the strip at 24 cells, so over 7d a cell is
+    # ~1700 pings and Starlink's normal ~0.3% background loss paints it
+    # red. Recolour by loss ratio instead: orange from 1%, red from 5%.
+    # (Same patch as modules/server/monitoring.nix.)
     {
       name = "System/smokeping.json";
       path = grafanaDashboard {
@@ -167,6 +184,18 @@ let
           "host=\"home.havlas.me\",ip=\"2a0c:c500:a828::3c\",job=\"smokeping\"" =
             "host=\"\${hostname:raw}\",ip=\"\${host:raw}\",job=\"$job\"";
         };
+        jq = ''
+          walk(if type == "object" and .type? == "status-history" and .title? == "Status History"
+               then .targets[0].expr = "1 - increase(smokeping_response_duration_seconds_count{host=\"''${hostname:raw}\",ip=\"''${host:raw}\",job=\"$job\"} [$__interval])\n/ increase(smokeping_requests_total{host=\"''${hostname:raw}\",ip=\"''${host:raw}\",job=\"$job\"} [$__interval])"
+                  | .fieldConfig.defaults.unit = "percentunit"
+                  | .fieldConfig.defaults.decimals = 1
+                  | .fieldConfig.defaults.thresholds.steps = [
+                      {"color": "#16a34a", "value": null},
+                      {"color": "#ea580c", "value": 0.01},
+                      {"color": "#dc2626", "value": 0.05}
+                    ]
+               else . end)
+        '';
       };
     }
     # Hand-written battery/power dashboard: charge, watts in/out vs CPU
@@ -259,12 +288,25 @@ in
 
   # A pinger whose FIRST send fails exits permanently while the exporter
   # process stays alive, so a boot-time race against WiFi silently kills
-  # probing of most targets until the next restart. Hold the unit until
-  # the network is actually up.
+  # probing of most targets until the next restart. Ordering after
+  # network-online isn't enough on a laptop: NetworkManager-wait-online
+  # can finish before WiFi has a route (it did on 2026-10-16, killing 4
+  # of 6 pingers for days). So also restart the exporter whenever NM
+  # brings a connection up; that covers boot and waking on a new network.
+  # Once any route exists, sends no longer fail outright, so later
+  # outages only show as loss.
   systemd.services.prometheus-smokeping-exporter = {
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
   };
+  networking.networkmanager.dispatcherScripts = [
+    {
+      source = pkgs.writeShellScript "restart-smokeping" ''
+        [ "$2" = up ] || exit 0
+        ${config.systemd.package}/bin/systemctl try-restart prometheus-smokeping-exporter.service
+      '';
+    }
+  ];
 
   # Backup metrics (snapshot count, age of newest snapshot, repo size) on
   # 127.0.0.1:9753 — good for alerting on "backups silently stopped".
