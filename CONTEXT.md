@@ -12,8 +12,8 @@ Canonical vocabulary for this repo. Terms only — design decisions live in
   repo. Keeps the name `proxmox` everywhere (hostname, metrics, logs) as a
   deliberate exception to the naming scheme.
 - **alba-nix** — the NixOS boat-services VM on Alba's Proxmox
-  (`hosts/alba-nix`). Runs the media stack now; absorbs the docker VM's
-  services over time.
+  (`hosts/alba-nix`). Runs the media stack and the
+  services absorbed from the docker-vm.
 - **donatello** — Jason's Framework 13 laptop (`hosts/donatello`).
   Deliberately an island: its monitoring and backups are self-contained.
 - **baxter** — Jason's previous laptop (Ubuntu). Source of the migrated
@@ -41,9 +41,10 @@ Canonical vocabulary for this repo. Terms only — design decisions live in
   one tracks sites and their scenes, the other only movies.
 - **published service** — a service given its own tailnet hostname by the
   caddy-tailscale layer (`modules/server/caddy.nix`).
-- **docker-vm** — the Ubuntu VM on Alba's Proxmox that runs the legacy
-  compose stack (tsdproxy, InfluxDB, the old Signal K). Being drained
-  into alba-nix service by service; not managed by this repo.
+- **docker-vm** — the retired Ubuntu VM on Alba's Proxmox that ran the
+  legacy compose stack (tsdproxy, InfluxDB, the old Signal K). Shut down
+  for good in October 2026 after its services were drained into
+  alba-nix; not managed by this repo.
 - **signalk** — *the* Signal K server for the boat: the aggregating
   instance on alba-nix that apps, dashboards and Node-RED mean by
   "Signal K". Its only data input is victron-signalk.

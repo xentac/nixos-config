@@ -19,6 +19,10 @@
 # /books is the calibre library, also an annex working tree on vault but
 # single-writer: calibre on donatello is the only thing that may change
 # it, so this mount is read-only for everyone (calibre-web.nix).
+#
+# /srv/paperless-export is the nightly export target (paperless.nix,
+# docs/adr/0009): a dedicated share, writable only by paperless. Plain
+# files, no annex.
 { config, pkgs, ... }:
 let
   vault = "192.168.1.223";
@@ -78,6 +82,17 @@ in
       "gid=calibre-web"
       "file_mode=0440"
       "dir_mode=0550"
+    ];
+  };
+
+  fileSystems."/srv/paperless-export" = {
+    device = "//${vault}/paperless";
+    fsType = "cifs";
+    options = common ++ [
+      "uid=paperless"
+      "gid=paperless"
+      "file_mode=0640"
+      "dir_mode=0750"
     ];
   };
 }

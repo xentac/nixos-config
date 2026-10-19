@@ -12,5 +12,6 @@
     ./signalk.nix
     ./lubelogger.nix
     ./calibre-web.nix
+    ./paperless.nix
   ];
 }

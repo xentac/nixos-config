@@ -235,6 +235,40 @@ checkout.
    Reconnect Calibre Database, and if that works, add a timer that does
    the same (or restarts the unit) just after the vault job.
 
+## Paperless
+
+Design: `modules/server/paperless.nix`, `docs/adr/0009`; the workflow is
+`docs/paperless.md`. The admin password is already in
+`secrets/alba-nix.yaml` (`paperless/admin-password`; read it with
+`sops -d`).
+
+1. **vault (DSM).** Create a shared folder `paperless`: the service
+   account (`svc-alba-nix`) read/write, xentac **read-only** (to browse
+   the export from donatello). Turn on Snapshot Replication for it:
+   daily, keep 30. That's the undo for the export's `--delete`.
+2. **Tailnet ACL.** Allow only your and your wife's devices to reach the
+   `paperless` node, like fava.
+3. **Deploy.** `just deploy alba-nix`. Paperless creates the superuser
+   `xentac` on first start.
+4. **Accounts.** At `https://paperless.stalk-darter.ts.net`: create a
+   `household` group with view/change/add/delete on everything, and a
+   second user in it for your wife. Under each user's profile set
+   default permissions to share with the group.
+5. **Inbox tag and `expires`.** Create the `inbox` tag with "Inbox tag"
+   ticked, the starter document types and tags from `docs/paperless.md`,
+   a date custom field `expires`, and the Inbox and Expiring saved
+   views.
+6. **Mail.** Create the GMX account, enable IMAP in its settings and
+   make an app password. In paperless, under Mail: an account
+   (`imap.gmx.com`, or `imap.gmx.net` for a .net/.de address; 993, SSL) and a rule: folder INBOX, attachments
+   only, PDF/image types, action "move to folder" `Processed` (create
+   it in GMX first), assign tag `inbox`.
+7. **Check.** Forward a PDF to the GMX address: within ~10 min it's in
+   the inbox, OCR'd. Upload a phone photo from the app. The next
+   morning, `/volume1/paperless` on vault has `manifest.json` and
+   `2026/<correspondent>/<title>.pdf`, and `systemctl status
+   paperless-export` shows success.
+
 ## Two whisparrs: scenes and movies
 
 Design: docs/adr/0006 and `modules/server/whisparr.nix`. v2 becomes
