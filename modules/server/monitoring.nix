@@ -8,8 +8,9 @@
 # must keep recording while the NAS is down, and restic->B2 already covers
 # durability (docs/adr/0004).
 #
-# Everything binds localhost; caddy.nix publishes Grafana as the tailnet
-# name "alba-grafana".
+# Everything binds localhost (except a VictoriaLogs ingest port open to
+# proxmox only); caddy.nix publishes Grafana as the tailnet name
+# "alba-grafana".
 {
   config,
   lib,
@@ -36,6 +37,17 @@ let
   # SYNOLOGY-* MIBs including the per-drive SMART table; the rest are the
   # generic host/interface modules dashboard 14284 graphs. One scrape
   # walks them all (repeated ?module= params, supported since 0.23).
+  # proxmox, the hypervisor under this VM: hand-managed, never configured
+  # from this repo. Reached by raw LAN IP, not its tailnet name, so host
+  # metrics/logs survive a tailscale or uplink outage (docs/adr/0008).
+  proxmoxAddress = "192.168.1.20";
+
+  # Extra VictoriaLogs listener for proxmox's systemd-journal-upload. A
+  # separate port rather than moving the main one off localhost: the
+  # firewall opens it to proxmox only, and every local consumer keeps
+  # using 127.0.0.1:9428.
+  victorialogsLanPort = 9429;
+
   snmpModules = [
     "synology" # disks, SMART, RAID, services, fans/PSU, DSM upgrade flag
     "if_mib" # network interfaces
@@ -267,12 +279,31 @@ let
     # files new/changed, ...) while nixpkgs still packages 1.7.0, leaving
     # half the dashboard permanently "No data". Rev 2 uses exactly the 1.7.0
     # metric set. Bump back to rev 3 when the nixpkgs exporter reaches 2.x.
+    # Two repos feed it: this host's exporter and proxmox's backup script,
+    # which writes the same 1.7.0 metrics via node_exporter's textfile
+    # collector. Per-snapshot panels split on client_hostname already; the
+    # two repo-wide stats don't, so split them by instance.
     {
       name = "System/restic-exporter.json";
       path = grafanaDashboard {
         id = 17554;
         rev = 2;
         hash = "sha256-5JwafWrhvfy73p6be2pWpvunMsMIDcFDjhDPlrlmsPw=";
+        replace = {
+          "restic_check_success" = "max by (instance) (restic_check_success)";
+          "restic_locks_total" = "max by (instance) (restic_locks_total)";
+        };
+      };
+    }
+    # Guests, storage and node status from the PVE API (the pve job). Host
+    # internals (PSI, NVMe temps, RAM) are in node-exporter-full under
+    # instance "proxmox".
+    {
+      name = "System/proxmox.json";
+      path = grafanaDashboard {
+        id = 10347;
+        rev = 5;
+        hash = "sha256-rHtSUxuvD9ZWO4QZdC2AtzhDmtXbaBmqLLt7EcaFjv8=";
       };
     }
   ];
@@ -349,6 +380,26 @@ in
   # it.
   sops.secrets."snmp/environment".restartUnits = [ "prometheus-snmp-exporter.service" ];
 
+  # PVE API poller on 127.0.0.1:9221 — a proxy exporter like snmp: the pve
+  # job below hands it proxmox as ?target=, and it queries the API live.
+  # Authenticates as prometheus@pve!exporter, a PVEAuditor (read-only)
+  # token.
+  services.prometheus.exporters.pve = {
+    enable = true;
+    listenAddress = "127.0.0.1";
+    environmentFile = config.sops.secrets."pve/environment".path;
+  };
+
+  # proxmox's API cert is self-signed; LAN-only, so don't verify it.
+  systemd.services.prometheus-pve-exporter.environment.PVE_VERIFY_SSL = "false";
+
+  # Env file, three lines:
+  #   PVE_USER=prometheus@pve
+  #   PVE_TOKEN_NAME=exporter
+  #   PVE_TOKEN_VALUE=<token secret>
+  # Same restartUnits reasoning as snmp/environment.
+  sops.secrets."pve/environment".restartUnits = [ "prometheus-pve-exporter.service" ];
+
   # The same api_key that lives inside sabnzbd/secrets_ini (media.nix),
   # duplicated as a bare value because the exporter wants a file holding
   # only the key — rotate both together. Read by systemd (LoadCredential)
@@ -399,6 +450,53 @@ in
               targets = [
                 "127.0.0.1:${toString config.services.prometheus.exporters.restic.port}"
               ];
+            }
+          ];
+          # Named after the host so the restic dashboard can tell this repo
+          # from proxmox's (which arrives via the proxmox-node job).
+          relabel_configs = [
+            {
+              target_label = "instance";
+              replacement = "alba-nix";
+            }
+          ];
+        }
+        {
+          # proxmox's Debian node_exporter: host internals plus the
+          # textfile collectors (SMART/NVMe scripts, and the restic.prom
+          # its backup script writes in restic-exporter's format).
+          job_name = "proxmox-node";
+          static_configs = [ { targets = [ "${proxmoxAddress}:9100" ]; } ];
+          relabel_configs = [
+            {
+              target_label = "instance";
+              replacement = "proxmox";
+            }
+          ];
+        }
+        {
+          # Proxied like snmp-vault: the target is a URL param, the
+          # connection goes to the local pve exporter.
+          job_name = "pve";
+          metrics_path = "/pve";
+          params = {
+            module = [ "default" ];
+            cluster = [ "1" ];
+            node = [ "1" ];
+          };
+          static_configs = [ { targets = [ proxmoxAddress ]; } ];
+          relabel_configs = [
+            {
+              source_labels = [ "__address__" ];
+              target_label = "__param_target";
+            }
+            {
+              target_label = "instance";
+              replacement = "proxmox";
+            }
+            {
+              target_label = "__address__";
+              replacement = "127.0.0.1:${toString config.services.prometheus.exporters.pve.port}";
             }
           ];
         }
@@ -504,8 +602,18 @@ in
     enable = true;
     package = restampVersion pkgs.victorialogs "victoria-logs";
     listenAddress = "127.0.0.1:9428";
-    extraOptions = [ "-retentionPeriod=1y" ];
+    extraOptions = [
+      "-retentionPeriod=1y"
+      # -httpListenAddr repeats: the module's localhost one plus this.
+      "-httpListenAddr=0.0.0.0:${toString victorialogsLanPort}"
+    ];
   };
+
+  # Only proxmox may reach the LAN listener. The NixOS firewall has no
+  # per-source port option, hence the raw rule.
+  networking.firewall.extraCommands = ''
+    iptables -A nixos-fw -p tcp -s ${proxmoxAddress} --dport ${toString victorialogsLanPort} -j nixos-fw-accept
+  '';
 
   services.journald.upload = {
     enable = true;
