@@ -18,5 +18,6 @@
     ./gaming.nix
     ./backups.nix
     ./monitoring.nix
+    ./mcp.nix
   ];
 }
