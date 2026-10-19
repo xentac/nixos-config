@@ -212,6 +212,10 @@ let
     # target instead of the dashboard's template variables (upstream bug,
     # panels "Today's Jittering" and "Avg. Response Time"); rewrite them
     # to the same templated selector every other panel uses.
+    # Status History colours each cell by lost-ping COUNT (>=4 red), and
+    # caps the strip at 24 cells, so over 7d a cell is ~1700 pings and
+    # Starlink's normal ~0.3% background loss paints it red. Recolour by
+    # loss ratio instead: orange from 1%, red from 5%.
     {
       name = "System/smokeping.json";
       path = grafanaDashboard {
@@ -222,6 +226,18 @@ let
           "host=\"home.havlas.me\",ip=\"2a0c:c500:a828::3c\",job=\"smokeping\"" =
             "host=\"\${hostname:raw}\",ip=\"\${host:raw}\",job=\"$job\"";
         };
+        jq = ''
+          walk(if type == "object" and .type? == "status-history" and .title? == "Status History"
+               then .targets[0].expr = "1 - increase(smokeping_response_duration_seconds_count{host=\"''${hostname:raw}\",ip=\"''${host:raw}\",job=\"$job\"} [$__interval])\n/ increase(smokeping_requests_total{host=\"''${hostname:raw}\",ip=\"''${host:raw}\",job=\"$job\"} [$__interval])"
+                  | .fieldConfig.defaults.unit = "percentunit"
+                  | .fieldConfig.defaults.decimals = 1
+                  | .fieldConfig.defaults.thresholds.steps = [
+                      {"color": "#16a34a", "value": null},
+                      {"color": "#ea580c", "value": 0.01},
+                      {"color": "#dc2626", "value": 0.05}
+                    ]
+               else . end)
+        '';
       };
     }
     # grafana.com has no dashboard for msroest/sabnzbd_exporter; upstream
