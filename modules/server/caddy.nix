@@ -35,6 +35,15 @@ let
     # when it moves. Its name used to be `signalk` on tsdproxy.
     victron-signalk = "192.168.1.207:3000";
   };
+
+  # Machines allowed to push metrics (alba-metrics-push below): name ->
+  # tailnet IPs (`tailscale ip`). The name becomes the `instance` label.
+  metricsPushers = {
+    donatello = [
+      "100.112.212.94"
+      "fd7a:115c:a1e0::3939:d45f"
+    ];
+  };
 in
 {
   # TS_AUTHKEY=<tailscale auth key or OAuth client secret> — used by tsnet
@@ -85,15 +94,48 @@ in
     # automatically. http:// requests get Caddy's standard redirect to
     # https. Requires MagicDNS + HTTPS Certificates enabled on the
     # tailnet (they are).
-    virtualHosts = lib.mapAttrs' (name: backend: {
-      name = "https://${name}.${tailnetDomain}";
-      value = {
-        extraConfig = ''
-          bind tailscale/${name}
-          reverse_proxy ${backend}
+    virtualHosts =
+      lib.mapAttrs' (name: backend: {
+        name = "https://${name}.${tailnetDomain}";
+        value = {
+          extraConfig = ''
+            bind tailscale/${name}
+            reverse_proxy ${backend}
+          '';
+        };
+      }) published
+      // {
+        # Push endpoint into alba-nix's VictoriaMetrics for machines that
+        # can't or shouldn't be scraped (donatello's restic metrics, on a
+        # timer: modules/desktop/monitoring.nix). Not a `published` entry:
+        # that would put the whole VictoriaMetrics API, deletes included,
+        # on the tailnet. Only Prometheus-text imports are proxied, and
+        # only from the tailnet IPs in metricsPushers. The client picks
+        # `job` (?job=...); `instance` comes from its IP. The query string
+        # is rebuilt from just those two, and VictoriaMetrics' extra_label
+        # overrides labels in the pushed lines, so a pusher can only ever
+        # write series as itself.
+        "https://alba-metrics-push.${tailnetDomain}".extraConfig = ''
+          bind tailscale/alba-metrics-push
+          map {remote_host} {push_instance} {
+            ${lib.concatStrings (
+              lib.mapAttrsToList (name: ips: lib.concatMapStrings (ip: "${ip} ${name}\n") ips) metricsPushers
+            )}
+            default -
+          }
+          @push {
+            path /api/v1/import/prometheus
+            not vars {push_instance} -
+          }
+          handle @push {
+            rewrite * ?extra_label=job={query.job}&extra_label=instance={push_instance}
+            reverse_proxy ${config.services.victoriametrics.listenAddress}
+          }
+          handle {
+            respond 403
+          }
         '';
       };
-    }) published;
   };
 
   systemd.services.caddy.serviceConfig.EnvironmentFile = config.sops.secrets."caddy/environment".path;

@@ -337,20 +337,33 @@ let
     # files new/changed, ...) while nixpkgs still packages 1.7.0, leaving
     # half the dashboard permanently "No data". Rev 2 uses exactly the 1.7.0
     # metric set. Bump back to rev 3 when the nixpkgs exporter reaches 2.x.
-    # Two repos feed it: this host's exporter and proxmox's backup script,
+    # Three repos feed it: this host's exporter; proxmox's backup script,
     # which writes the same 1.7.0 metrics via node_exporter's textfile
-    # collector. Per-snapshot panels split on client_hostname already; the
-    # two repo-wide stats don't, so split them by instance.
+    # collector; and donatello, which pushes its own exporter's restic_*
+    # lines through the alba-metrics-push node (caddy.nix) every hour or
+    # so while it's awake. Per-snapshot panels split on client_hostname
+    # already; the repo-wide stats don't, so split them by instance. Every
+    # metric is read through last_over_time(...[30d]): a sleeping or dead
+    # laptop pushes nothing, and plain lookups would drop its series after
+    # a few minutes, blanking the panel instead of letting "Last backup"
+    # age into red.
     {
       name = "System/restic-exporter.json";
       path = grafanaDashboard {
         id = 17554;
         rev = 2;
         hash = "sha256-5JwafWrhvfy73p6be2pWpvunMsMIDcFDjhDPlrlmsPw=";
-        replace = {
-          "restic_check_success" = "max by (instance) (restic_check_success)";
-          "restic_locks_total" = "max by (instance) (restic_locks_total)";
-        };
+        replace =
+          lib.genAttrs [
+            "restic_backup_files_total"
+            "restic_backup_size_total"
+            "restic_backup_snapshots_total"
+            "restic_backup_timestamp"
+          ] (m: "last_over_time(${m}[30d])")
+          // {
+            "restic_check_success" = "max by (instance) (last_over_time(restic_check_success[30d]))";
+            "restic_locks_total" = "max by (instance) (last_over_time(restic_locks_total[30d]))";
+          };
       };
     }
     # Guests, storage and node status from the PVE API (the pve job). Host

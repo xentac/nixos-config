@@ -320,6 +320,41 @@ in
     refreshInterval = 3600;
   };
 
+  # Copy those metrics to alba-nix so the boat's restic dashboard shows
+  # this repo next to its own and proxmox's, and "Last backup" keeps
+  # aging while the laptop is off. Pushed rather than scraped or read
+  # from B2 there: alba-nix holds no credentials for this repo, and the
+  # endpoint (caddy.nix's alba-metrics-push node) only accepts imports,
+  # stamped instance=donatello from this machine's tailnet IP. On a timer, not after each backup: the
+  # exporter only refreshes hourly, so a push right after a backup would
+  # carry the previous one's values.
+  systemd.services.restic-metrics-push = {
+    description = "Push restic metrics to alba-nix";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      DynamicUser = true;
+    };
+    script = ''
+      set -o pipefail
+      ${pkgs.curl}/bin/curl -fsS --max-time 30 \
+          http://127.0.0.1:${toString config.services.prometheus.exporters.restic.port}/metrics \
+        | ${pkgs.gnugrep}/bin/grep '^restic_' \
+        | ${pkgs.curl}/bin/curl -fsS --max-time 60 --data-binary @- \
+          'https://alba-metrics-push.stalk-darter.ts.net/api/v1/import/prometheus?job=restic'
+    '';
+  };
+  systemd.timers.restic-metrics-push = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "hourly";
+      RandomizedDelaySec = "5m";
+      # Catch up after suspend/shutdown, so a wake pushes right away.
+      Persistent = true;
+    };
+  };
+
   # Time-series database. Scrape targets go in prometheusConfig below —
   # when adding a new exporter, add a scrape_configs entry pointing at it.
   services.victoriametrics = {
