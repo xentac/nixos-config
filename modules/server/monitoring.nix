@@ -298,6 +298,14 @@ let
     # Guests, storage and node status from the PVE API (the pve job). Host
     # internals (PSI, NVMe temps, RAM) are in node-exporter-full under
     # instance "proxmox".
+    # Hand-written: NVMe wear/health/temperature from the Debian
+    # node-exporter-collectors scripts on proxmox (nvme_* by `device`,
+    # smartmon_* by `disk`). Grafana.com dashboards for these target
+    # smartctl_exporter's metric names instead.
+    {
+      name = "System/nvme-health.json";
+      path = ./grafana-dashboards/nvme-health.json;
+    }
     {
       name = "System/proxmox.json";
       path = grafanaDashboard {
