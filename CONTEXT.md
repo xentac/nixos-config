@@ -7,6 +7,10 @@ Canonical vocabulary for this repo. Terms only — design decisions live in
   (Proxmox, vault, the VMs). Location token in server names.
 - **vault** — the Synology NAS at 192.168.1.223. An appliance: never
   nixified, holds the media shares and the authoritative git-annex repos.
+- **proxmox** — Alba's hypervisor, which hosts alba-nix, the docker-vm and
+  the other guests. A hand-managed appliance, never configured from this
+  repo. Keeps the name `proxmox` everywhere (hostname, metrics, logs) as a
+  deliberate exception to the naming scheme.
 - **alba-nix** — the NixOS boat-services VM on Alba's Proxmox
   (`hosts/alba-nix`). Runs the media stack now; absorbs the docker VM's
   services over time.
