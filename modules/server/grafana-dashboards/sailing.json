@@ -604,7 +604,7 @@
       },
       "targets": [
         {
-          "expr": "signalk_environment_wind_angleApparent * 57.29577951308232",
+          "expr": "(signalk_environment_wind_angleApparent * 57.29577951308232 + 360) % 360",
           "legendFormat": "Mean",
           "refId": "A"
         }

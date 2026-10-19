@@ -292,7 +292,7 @@
       },
       "targets": [
         {
-          "expr": "signalk_navigation_anchor_currentRadius{source=\"anchoralarm\"}",
+          "expr": "signalk_navigation_anchor_currentRadius",
           "legendFormat": "Distance",
           "refId": "A"
         }
@@ -357,7 +357,7 @@
       },
       "targets": [
         {
-          "expr": "signalk_navigation_anchor_bearingTrue{source=\"anchoralarm\"} * 57.29577951308232",
+          "expr": "signalk_navigation_anchor_bearingTrue * 57.29577951308232",
           "legendFormat": "True",
           "refId": "A"
         }

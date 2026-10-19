@@ -116,34 +116,41 @@ let
   # declared default (normally filled in by the manual import wizard,
   # which provisioning bypasses). `replace` is for patching author
   # mistakes: literal string substitutions applied inside every string
-  # value of the dashboard JSON.
+  # value of the dashboard JSON. `jq` is an extra filter run last, for the
+  # rare fix that isn't a string substitution (e.g. one panel's unit).
   patchDashboard =
     name:
     {
       src,
       replace ? { },
+      jq ? ".",
     }:
     pkgs.runCommand name
       {
         inherit src;
         nativeBuildInputs = [ pkgs.jq ];
+        # Passed as a file, not inline in shell quotes: replace strings
+        # are PromQL and may contain quotes of either kind.
+        passAsFile = [ "filter" ];
+        filter = ''
+          reduce (.__inputs // [])[] as $i (.;
+            if $i.pluginId == "prometheus"
+            then walk(if . == ("''${" + $i.name + "}") then "victoriametrics" else . end)
+            elif $i.type == "constant"
+            then walk(if . == ("''${" + $i.name + "}") then $i.value else . end)
+            else . end)
+          | del(.__inputs)
+          ${lib.concatStrings (
+            lib.mapAttrsToList (
+              from: to:
+              "| walk(if type == \"string\" then (split(${builtins.toJSON from}) | join(${builtins.toJSON to})) else . end)\n"
+            ) replace
+          )}
+          | ${jq}
+        '';
       }
       ''
-        jq 'reduce (.__inputs // [])[] as $i (.;
-              if $i.pluginId == "prometheus"
-              then walk(if . == ("''${" + $i.name + "}") then "victoriametrics" else . end)
-              elif $i.type == "constant"
-              then walk(if . == ("''${" + $i.name + "}") then $i.value else . end)
-              else . end)
-            | del(.__inputs)
-            ${
-              lib.concatStrings (
-                lib.mapAttrsToList (
-                  from: to:
-                  "| walk(if type == \"string\" then (split(${builtins.toJSON from}) | join(${builtins.toJSON to})) else . end)"
-                ) replace
-              )
-            }' "$src" > "$out"
+        jq -f "$filterPath" "$src" > "$out"
       '';
 
   grafanaDashboard =
@@ -152,13 +159,14 @@ let
       rev,
       hash,
       replace ? { },
+      jq ? ".",
     }:
     patchDashboard "grafana-dashboard-${toString id}-rev${toString rev}.json" {
       src = pkgs.fetchurl {
         url = "https://grafana.com/api/dashboards/${toString id}/revisions/${toString rev}/download";
         inherit hash;
       };
-      inherit replace;
+      inherit replace jq;
     };
 
   dashboardsDir = pkgs.linkFarm "grafana-dashboards" [
@@ -168,6 +176,10 @@ let
         id = 1860;
         rev = 45;
         hash = "sha256-GExrdAnzBtp1Ul13cvcZRbEM6iOtFrXXjEaY6g6lGYY=";
+        # "Network Operational Status" filters node_network_up on an
+        # operstate label it doesn't carry (that's node_network_info's), so
+        # the panel is always empty. node_network_up is already 1/0 per device.
+        replace."node_network_up{operstate=\"up\"," = "node_network_up{";
       };
     }
     {
@@ -231,7 +243,13 @@ let
     # the snmp-vault job scrapes. Its "Synology's Down" stat compares
     # count(systemStatus) against the author's constant NASDevices=4
     # (normally edited during the import wizard); rewrite its two
-    # expressions to expect our single NAS.
+    # expressions to expect our single NAS. Its interface and storage
+    # variables read label_values off ifName / hrStorageDescr series, but
+    # snmp_exporter only emits those as labels on other series (no metric
+    # of that name), leaving the Networking, File Systems and Memory rows
+    # empty; read the same labels off ifAdminStatus / hrStorageSize. The
+    # per-disk I/O panel rate()s the storageIOLA* load gauges (percent
+    # busy) and labels them bps; graph them raw, in percent.
     {
       name = "NAS/synology.json";
       path = grafanaDashboard {
@@ -241,7 +259,29 @@ let
         replace = {
           "$NASDevices-count(systemStatus)" = "1-count(systemStatus)";
           "count(systemStatus)-$NASDevices" = "count(systemStatus)-1";
-        };
+          "label_values(ifName{" = "label_values(ifAdminStatus{";
+          "label_values(hrStorageDescr{" = "label_values(hrStorageSize{";
+        }
+        // lib.listToAttrs (
+          map
+            (
+              m:
+              let
+                sel = "${m}{job=~'$JobName',instance=~'$Device',storageIODevice=~'$storageIODevice'}";
+              in
+              lib.nameValuePair "rate(${sel}[$__rate_interval])" sel
+            )
+            [
+              "storageIOLA"
+              "storageIOLA1"
+              "storageIOLA5"
+              "storageIOLA15"
+            ]
+        );
+        jq = ''
+          walk(if type == "object" and .title? == "I/O: $storageIODevice - ($Device)"
+               then .fieldConfig.defaults.unit = "percent" else . end)
+        '';
       };
     }
     # Hand-written port of the old InfluxDB-backed "Boat internals"
@@ -264,8 +304,10 @@ let
     # shared (Location, TWS, TWS heatmap, TWD, Depth below keel, Water
     # temperature) are inlined per dashboard: provisioned dashboards
     # can't reference library panels. The anchor panels only get data
-    # while the anchoralarm plugin has an anchor set. The compass panels
-    # need the briangann-gauge-panel plugin declared below.
+    # while the anchor alarm plugin (hoekens-anchor-alarm) has an anchor
+    # set; they don't match on source, so swapping plugins doesn't orphan
+    # them. The compass panels need the briangann-gauge-panel plugin
+    # declared below. AWA runs -180..180, so its compass wraps to 0..360.
     {
       name = "Boat/anchor.json";
       path = ./grafana-dashboards/anchor.json;

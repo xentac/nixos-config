@@ -27,7 +27,7 @@
         {
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
           "editorMode": "code",
-          "expr": "{_HOSTNAME=~\"${hostname:regex}\", _SYSTEMD_UNIT=~\"${unit:regex}\"} level:~\"${level:regex}\" $query | stats by (_SYSTEMD_UNIT) count()",
+          "expr": "{_HOSTNAME=~`${hostname:regex}`, _SYSTEMD_UNIT=~`${unit:regex}`} level:~`${level:regex}` $query | stats by (_SYSTEMD_UNIT) count()",
           "legendFormat": "{{_SYSTEMD_UNIT}}",
           "queryType": "statsRange",
           "refId": "A"
@@ -51,7 +51,7 @@
         {
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
           "editorMode": "code",
-          "expr": "{_HOSTNAME=~\"${hostname:regex}\", _SYSTEMD_UNIT=~\"${unit:regex}\"} level:~\"${level:regex}\" $query | stats by (\"$count_by\") count() c | sort by (c desc) | limit 25",
+          "expr": "{_HOSTNAME=~`${hostname:regex}`, _SYSTEMD_UNIT=~`${unit:regex}`} level:~`${level:regex}` $query | stats by (\"$count_by\") count() c | sort by (c desc) | limit 25",
           "legendFormat": "{{$count_by}}",
           "queryType": "stats",
           "refId": "A"
@@ -79,7 +79,7 @@
         {
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
           "editorMode": "code",
-          "expr": "{_HOSTNAME=~\"${hostname:regex}\", _SYSTEMD_UNIT=~\"${unit:regex}\"} level:~\"${level:regex}\" $query | sort by (_time) desc | limit $limit",
+          "expr": "{_HOSTNAME=~`${hostname:regex}`, _SYSTEMD_UNIT=~`${unit:regex}`} level:~`${level:regex}` $query | sort by (_time) desc | limit $limit",
           "queryType": "range",
           "refId": "A"
         }
@@ -122,7 +122,7 @@
         "query": {
           "field": "_SYSTEMD_UNIT",
           "limit": 0,
-          "query": "{_HOSTNAME=~\"${hostname:regex}\"}",
+          "query": "{_HOSTNAME=~`${hostname:regex}`}",
           "refId": "VictoriaLogsVariableQueryEditor-VariableQuery",
           "type": "fieldValue"
         },
@@ -166,7 +166,7 @@
         "query": {
           "field": "",
           "limit": 50,
-          "query": "{_HOSTNAME=~\"${hostname:regex}\", _SYSTEMD_UNIT=~\"${unit:regex}\"}",
+          "query": "{_HOSTNAME=~`${hostname:regex}`, _SYSTEMD_UNIT=~`${unit:regex}`}",
           "refId": "VictoriaLogsVariableQueryEditor-VariableQuery",
           "type": "fieldName"
         },
