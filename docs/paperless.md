@@ -22,6 +22,18 @@ making documents findable.
 - No scanner aboard, so no watched folder. If one shows up, add a
   consume folder then.
 
+## What doesn't go in
+
+Anything the finance ledger's ingest pipeline already archives
+(github.com/xentac/beancount, PDFs under `finances/data/Documents/`,
+filed by account): paystubs, and bank, brokerage, card and mortgage
+statements. The ledger is their home; a second copy here would only
+drift. Everything else goes here, including tax forms unless the
+ingest starts filing those too.
+
+If searching statements' text ever becomes useful, have the ingest
+pipeline upload a copy here rather than filing them twice by hand.
+
 ## Labelling
 
 Every new document gets the `inbox` tag. Review = open the Inbox saved
@@ -44,7 +56,7 @@ about. A marine mechanic's bill is an Invoice, from the shop, tagged
   | --- | --- | --- |
   | Invoice | a bill: money owed | haul-out, utilities, mechanic |
   | Receipt | proof of payment | fuel dock, chandlery, online orders |
-  | Statement | periodic account summary | bank, credit card, investments, loans |
+  | Statement | periodic account summary, for accounts the ledger doesn't ingest | a loan or account outside the ledger |
   | Policy | insurance terms and certificates of coverage | boat, health, travel, vehicle |
   | Contract | an agreement both sides signed | slip agreement, purchase agreement, lease |
   | ID / Permit | something that authorizes a person or the boat | passports, licences, boat registration, cruising permits, clearance papers |
