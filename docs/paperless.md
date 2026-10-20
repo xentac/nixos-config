@@ -36,11 +36,19 @@ month or two most documents arrive already labelled.
   document really fits none of them.
 - **Tags:** few. Starters: `inbox` (inbox tag), `boat`, `vehicle`,
   `tax-<year>` for anything the accountant will want.
+- **Created date:** paperless's built-in document date, the date *on*
+  the document. For IDs, permits and policies that's the issue date; fix
+  it in review if the OCR guess is wrong.
 - **`expires` (date custom field):** set on documents with a real-world
   deadline: insurance, boat registration, cruising permits, passports,
-  warranties. When a renewal arrives, clear `expires` on the old one.
+  warranties. Keep it on every version, old ones included.
+- **`replaced by` (document link custom field):** when a renewal
+  arrives, set it on the *old* document, pointing at the new one. Links
+  are bidirectional, so the new one shows what it replaced, and
+  successive renewals form a chain. A document with `replaced by` set is
+  history, not something to act on.
 - **Saved views:** Inbox (has `inbox`, oldest first); Expiring (has
-  `expires` within 90 days, sorted by it).
+  `expires` within 90 days, `replaced by` not set, sorted by `expires`).
 
 Two household accounts, everything shared: create both in the UI and
 give both the same group, used as the default owner/permissions so
@@ -56,7 +64,7 @@ should alert on, and how each can be measured:
 | Alert | Condition | Source |
 | --- | --- | --- |
 | Inbox needs review | oldest `inbox` document older than 14 days | API: `GET /api/documents/?is_in_inbox=true&ordering=added&page_size=1&fields=id,added` (`count` and `results[0].added`) |
-| Document expiring | an `expires` date within the next 30 days | API: field id from `/api/custom_fields/?name__iexact=expires`, then `/api/documents/?custom_field_query=["expires","gte","<today>"]&fields=id,title,custom_fields` |
+| Document expiring | an `expires` date within the next 30 days, `replaced by` unset | API: field id from `/api/custom_fields/?name__iexact=expires`, then `/api/documents/?custom_field_query=["expires","gte","<today>"]&fields=id,title,custom_fields` |
 | Mail fetch failing | IMAP fetch keeps erroring (GMX turned IMAP off, app password revoked, account idled out) | VictoriaLogs: `` _SYSTEMD_UNIT:paperless-task-queue.service ~`\[(ERROR\|CRITICAL)\] \[paperless[._]mail` `` (checks run every 10 min; >12 in 6 h ≈ 2 h of failure) |
 | alba-nix disk filling | root filesystem > 85% | `node_filesystem_avail_bytes{mountpoint="/"}` |
 | Nightly export failing | `paperless-export.service` failed | node_exporter systemd collector |
@@ -70,7 +78,10 @@ Notes for whoever builds it:
   in its own right: a silent pipeline is the failure this exists to catch.
 - Expired documents stay in paperless forever, so the expiry check must
   only look at dates from today onward, or old passports alert
-  permanently.
+  permanently. It must also skip documents with `replaced by` set: a
+  passport renewed early keeps its old version's future `expires` date.
+  `custom_field_query` can combine both, e.g.
+  `["AND", [["expires","gte","<today>"], ["replaced by","exists",false]]]`.
 - Paperless logs to the console in `[time] [LEVEL] [logger] message`
   form; mail errors come from the `paperless_mail` and
   `paperless.mail.tasks` loggers in the celery worker unit. The query

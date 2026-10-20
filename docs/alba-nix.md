@@ -256,8 +256,8 @@ Design: `modules/server/paperless.nix`, `docs/adr/0009`; the workflow is
    default permissions to share with the group.
 5. **Inbox tag and `expires`.** Create the `inbox` tag with "Inbox tag"
    ticked, the starter document types and tags from `docs/paperless.md`,
-   a date custom field `expires`, and the Inbox and Expiring saved
-   views.
+   a date custom field `expires`, a document link custom field
+   `replaced by`, and the Inbox and Expiring saved views.
 6. **Mail.** Create the GMX account, enable IMAP in its settings and
    make an app password. In paperless, under Mail: an account
    (`imap.gmx.com`, or `imap.gmx.net` for a .net/.de address; 993, SSL) and a rule: folder INBOX, attachments
