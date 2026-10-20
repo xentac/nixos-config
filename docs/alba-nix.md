@@ -365,3 +365,92 @@ in a dedicated network namespace, `services.qbittorrent` unit joined to
 it (`NetworkNamespacePath`), no default route in the netns except the
 tunnel (structural kill-switch), web UI bridged out, listen port = the
 reserved AirVPN port. Publish the UI via caddy.nix like the others.
+
+## Alerts
+
+Design: `modules/server/alerting.nix`, `docs/adr/0010`. vmalert →
+Alertmanager → ntfy.sh (`warn` is silent, `page` makes a sound), plus a
+Watchdog pinging healthchecks.io. Silence an alert from Grafana
+(Alerting → Silences, Alertmanager datasource). Each alert's "Grafana"
+button opens its query in Explore.
+
+Setup (once):
+
+1. **ntfy.** Pick a long random topic (e.g. `alba-` plus `openssl rand
+   -hex 16`), subscribe to it in the ntfy app on your phone (server
+   `ntfy.sh`), and set `alerting/ntfy-topic` in `secrets/alba-nix.yaml`.
+2. **healthchecks.io.** Create a free account and a check named
+   `alba-nix watchdog` with period 5 min, grace 10 min, notifying the
+   same ntfy topic or the healthchecks app/email. Put its ping URL
+   (`https://hc-ping.com/<uuid>`) in `alerting/healthchecks-url`.
+3. **Paperless token.** Set `paperless/metrics-token` to `unset` for
+   now. After deploying, create a `metrics` user in paperless with view
+   permission on documents, tags and custom fields, create an API
+   token for it (profile → API auth token), and put the token in the
+   secret. Until then `paperless-metrics` fails, which raises
+   SystemdUnitFailed and PaperlessMetricsMissing as a reminder.
+4. **Deploy and test.** `just deploy alba-nix`. Within ~5 min
+   healthchecks.io shows the check as up. To test the phone path, post
+   a fake alert:
+   `curl -XPOST localhost:9093/api/v2/alerts -H 'Content-Type: application/json' -d '[{"labels":{"alertname":"Test","severity":"warn"}}]'`
+   on alba-nix. It arrives within ~1 min and resolves itself after 5.
+
+### TargetDown
+
+A scrape target has been unreachable for 15 min. `systemctl status` the
+exporter on alba-nix. For `proxmox-node`/`pve`, check proxmox is up and
+the LAN path is fine. For `snmp-vault`, check vault. For `signalk`, check
+the container (`docs/adr/0005`).
+
+### SystemdUnitFailed
+
+`systemctl status <unit>` and `journalctl -u <unit>` on that host (or
+the journald explorer dashboard). The alert clears once the unit is
+restarted successfully or reset (`systemctl reset-failed <unit>`). A
+failed `paperless-export` usually means vault was unreachable at 03:30.
+
+### FilesystemFull
+
+`warn` at 85%, `page` at 95%. On alba-nix the usual causes are
+`/downloads` (stuck sab jobs), old btrfs snapshots in `/.snapshots`, or
+the nix store (`nix-collect-garbage --delete-older-than 30d`). The
+thin pool under the VM is overcommitted, so free space inside the guest
+before growing the disk.
+
+### BackupStale
+
+No new restic snapshot for 36 h (4 days for donatello). Check the
+backup unit's journal on that host (`restic-backups-*`; on proxmox, its
+cron script), then B2 reachability. If the uplink is **metered**,
+alba-nix's backup may be standing down on purpose.
+
+### BackupCheckFailed
+
+`restic check` reported a problem with the repository. Run `restic
+check` by hand with the host's credentials and read the error before
+doing anything else. Never `prune` a repository that fails its check.
+
+### PaperlessInboxStale
+
+The oldest document in the paperless inbox is older than 14 days.
+Review the Inbox saved view (`docs/paperless.md`, "Labelling").
+
+### PaperlessDocumentExpiring
+
+A document's `expires` date is less than 30 days away. Renew it, then
+clear `expires` on the old document so the alert stops. Once the date
+has passed, the alert can linger for up to an hour with a negative
+"expires in" and then clear by itself.
+
+### PaperlessMailFailing
+
+Paperless's IMAP fetch keeps erroring. Log into GMX's web UI: is IMAP
+still enabled, is the app password still valid, has the account been
+restricted for inactivity? Update the mail account in paperless if the
+password changed.
+
+### PaperlessMetricsMissing
+
+`paperless-metrics` hasn't pushed for an hour. `journalctl -u
+paperless-metrics`. The usual cause is the token still being `unset`
+or having been revoked.

@@ -7,6 +7,7 @@
     ./mounts.nix
     ./caddy.nix
     ./monitoring.nix
+    ./alerting.nix
     ./backups.nix
     ./fava.nix
     ./signalk.nix

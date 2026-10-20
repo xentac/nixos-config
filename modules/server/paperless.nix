@@ -16,7 +16,12 @@
 # Binds localhost; caddy.nix publishes it as the tailnet name "paperless".
 # Restrict that node in the tailnet ACL to Jason's and his wife's devices,
 # like fava. Paperless's own login is the second layer.
-{ config, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.services.paperless;
   exportDir = "/srv/paperless-export"; # the vault mount, mounts.nix
@@ -33,6 +38,9 @@ in
   sops.secrets."paperless/admin-password" = {
     owner = cfg.user;
   };
+  # API token of the view-only `metrics` user, created in the UI after the
+  # first deploy (docs/alba-nix.md). Holds the placeholder `unset` until then.
+  sops.secrets."paperless/metrics-token" = { };
   services.paperless = {
     enable = true;
     # Superuser created on first start; the household accounts are made in
@@ -82,5 +90,36 @@ in
         --delete --use-filename-format --no-thumbnail \
         --no-progress-bar --no-color
     '';
+  };
+
+  # Alerting inputs (paperless-metrics.sh): every 15 min, pushed into
+  # VictoriaMetrics for the paperless rules in alerting.nix. Runs on the
+  # same host, with paperless's own token, so no foreign credentials are
+  # involved.
+  systemd.services.paperless-metrics = {
+    description = "Push paperless inbox/expiry/mail health to VictoriaMetrics";
+    startAt = "*:0/15";
+    after = [ "paperless-web.service" ];
+    environment = {
+      PAPERLESS = "http://${cfg.address}:${toString cfg.port}";
+      VM = "http://${config.services.victoriametrics.listenAddress}";
+      VL = "http://${config.services.victorialogs.listenAddress}";
+    };
+    serviceConfig = {
+      Type = "oneshot";
+      DynamicUser = true;
+      LoadCredential = "token:${config.sops.secrets."paperless/metrics-token".path}";
+      ExecStart = lib.getExe (
+        pkgs.writeShellApplication {
+          name = "paperless-metrics";
+          runtimeInputs = [
+            pkgs.coreutils
+            pkgs.curl
+            pkgs.jq
+          ];
+          text = builtins.readFile ./paperless-metrics.sh;
+        }
+      );
+    };
   };
 }

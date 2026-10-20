@@ -99,22 +99,22 @@ Two household accounts, everything shared: create both in the UI and
 give both the same group, used as the default owner/permissions so
 nobody manages permissions per upload.
 
-## Alerting (deferred)
+## Alerting
 
-Review is meant to be prompted by alerts rather than a calendar habit,
-but alerting on alba-nix is being designed separately (as of
-2026-10-19 Grafana has no contact points or rules). What paperless
-should alert on, and how each can be measured:
+Review is prompted by alerts rather than a calendar habit. The rules
+are in `modules/server/alerting.nix` (runbook: `docs/alba-nix.md`,
+"Alerts"), and their inputs are pushed every 15 min by
+`paperless-metrics` (`modules/server/paperless-metrics.sh`):
 
 | Alert | Condition | Source |
 | --- | --- | --- |
 | Inbox needs review | oldest `inbox` document older than 14 days | API: `GET /api/documents/?is_in_inbox=true&ordering=added&page_size=1&fields=id,added` (`count` and `results[0].added`) |
 | Document expiring | an `expires` date within the next 30 days, `replaced by` unset | API: field id from `/api/custom_fields/?name__iexact=expires`, then `/api/documents/?custom_field_query=["expires","gte","<today>"]&fields=id,title,custom_fields` |
 | Mail fetch failing | IMAP fetch keeps erroring (app password revoked, 2-Step Verification turned off, account locked) | VictoriaLogs: `` _SYSTEMD_UNIT:paperless-task-queue.service ~`\[(ERROR\|CRITICAL)\] \[paperless[._]mail` `` (checks run every 10 min; >12 in 6 h ≈ 2 h of failure) |
-| alba-nix disk filling | root filesystem > 85% | `node_filesystem_avail_bytes{mountpoint="/"}` |
-| Nightly export failing | `paperless-export.service` failed | node_exporter systemd collector |
+| alba-nix disk filling | root filesystem > 85% | generic FilesystemFull rule |
+| Nightly export failing | `paperless-export.service` failed | generic SystemdUnitFailed rule |
 
-Notes for whoever builds it:
+Notes:
 
 - The API calls need a token. Use a dedicated view-only `metrics` user
   (view permission on documents, tags, custom fields), not an admin's.
