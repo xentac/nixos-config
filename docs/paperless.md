@@ -54,6 +54,7 @@ about. A marine mechanic's bill is an Invoice, from the shop, tagged
 
   | Type | What it is | Examples |
   | --- | --- | --- |
+  | Quote | an offer for work or goods, nothing owed yet | repair estimates, haul-out quotes |
   | Invoice | a bill: money owed | haul-out, utilities, mechanic |
   | Receipt | proof of payment | fuel dock, chandlery, online orders |
   | Statement | periodic account summary, for accounts the ledger doesn't ingest | a loan or account outside the ledger |
@@ -67,7 +68,9 @@ about. A marine mechanic's bill is an Invoice, from the shop, tagged
   | Manual | product documentation | engine and equipment manuals, warranty cards |
 
 - **Tags:** few. Starters: `inbox` (inbox tag), `boat`, `vehicle`,
-  `medical`, `tax-<year>` for anything supporting that year's return.
+  `house`, `medical`, `tax-<year>` for anything supporting that year's
+  return. Property tags name something that won't change: if a second
+  house comes along, rename `house` to e.g. `house-<street>`.
 - **Person tags:** one per household member (e.g. `jason`), on
   documents that belong to a specific person: IDs, medical records,
   certificates. Not on household bills or boat papers. Ownership is
