@@ -71,6 +71,11 @@ about. A marine mechanic's bill is an Invoice, from the shop, tagged
   `house`, `medical`, `tax-<year>` for anything supporting that year's
   return. Property tags name something that won't change: if a second
   house comes along, rename `house` to e.g. `house-<street>`.
+- **Nested tags:** each `tax-<year>` has the parent `tax`, so filtering
+  on `tax` shows every year and the tag list stays tidy. A child tag
+  adds its parent to the document (and removing a parent removes its
+  children), so only nest where the parent is worth filtering on: not
+  for person tags, and `boat`/`house` stay flat for now.
 - **Person tags:** one per household member (e.g. `jason`), on
   documents that belong to a specific person: IDs, medical records,
   certificates. Not on household bills or boat papers. Ownership is
