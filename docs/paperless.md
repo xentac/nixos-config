@@ -14,7 +14,7 @@ making documents findable.
 - **Paper:** photograph it with the phone app (Paperless Mobile on
   Android, Swift Paperless on iOS) over Tailscale. One page per photo;
   the app combines multi-page documents.
-- **Digital:** forward it to the GMX paperless address, or have bills
+- **Digital:** forward it to the paperless Gmail address, or have bills
   sent there directly (change the delivery address, or a Gmail filter
   in the main account auto-forwards). The mail rule imports PDF and
   image attachments and files the email away.
@@ -29,13 +29,38 @@ view, check or fix correspondent and document type, set `expires` if it
 applies, remove `inbox`. Corrections train the auto-matching, so after a
 month or two most documents arrive already labelled.
 
-- **Correspondent:** who sent it. Let these grow naturally.
-- **Document type:** a small, fixed set. Starter list:
-  Invoice, Receipt, Statement, Policy, Contract, Registration / Permit,
-  Certificate, Tax, Medical, Letter, Manual. Add one only when a
-  document really fits none of them.
+The three axes don't overlap: **type** is what the document *is*,
+**correspondent** is who issued or sent it, **tags** are what or whom it's
+about. A marine mechanic's bill is an Invoice, from the shop, tagged
+`boat`; never a "Boat" type.
+
+- **Correspondent:** the issuer or sender, never the person a document
+  is about: a passport's correspondent is the passport office. Let these
+  grow naturally.
+- **Document type:** a small, fixed set. Add one only when a document
+  really fits none of them, and keep the list around 10–12.
+
+  | Type | What it is | Examples |
+  | --- | --- | --- |
+  | Invoice | a bill: money owed | haul-out, utilities, mechanic |
+  | Receipt | proof of payment | fuel dock, chandlery, online orders |
+  | Statement | periodic account summary | bank, credit card, investments, loans |
+  | Policy | insurance terms and certificates of coverage | boat, health, travel, vehicle |
+  | Contract | an agreement both sides signed | slip agreement, purchase agreement, lease |
+  | ID / Permit | something that authorizes a person or the boat | passports, licences, boat registration, cruising permits, clearance papers |
+  | Certificate | proof of a fact or qualification | survey, radio licence, courses, birth/marriage |
+  | Tax form | official tax paperwork | returns, slips, assessments |
+  | Medical record | clinical paperwork (bills are Invoices) | results, prescriptions, vaccinations |
+  | Correspondence | letters and notices that fit nothing else | official letters, notices |
+  | Manual | product documentation | engine and equipment manuals, warranty cards |
+
 - **Tags:** few. Starters: `inbox` (inbox tag), `boat`, `vehicle`,
-  `tax-<year>` for anything the accountant will want.
+  `medical`, `tax-<year>` for anything supporting that year's return.
+- **Person tags:** one per household member (e.g. `jason`), on
+  documents that belong to a specific person: IDs, medical records,
+  certificates. Not on household bills or boat papers. Ownership is
+  for permissions (everything is shared), not for who a document is
+  about.
 - **Created date:** paperless's built-in document date, the date *on*
   the document. For IDs, permits and policies that's the issue date; fix
   it in review if the OCR guess is wrong.
@@ -65,7 +90,7 @@ should alert on, and how each can be measured:
 | --- | --- | --- |
 | Inbox needs review | oldest `inbox` document older than 14 days | API: `GET /api/documents/?is_in_inbox=true&ordering=added&page_size=1&fields=id,added` (`count` and `results[0].added`) |
 | Document expiring | an `expires` date within the next 30 days, `replaced by` unset | API: field id from `/api/custom_fields/?name__iexact=expires`, then `/api/documents/?custom_field_query=["expires","gte","<today>"]&fields=id,title,custom_fields` |
-| Mail fetch failing | IMAP fetch keeps erroring (GMX turned IMAP off, app password revoked, account idled out) | VictoriaLogs: `` _SYSTEMD_UNIT:paperless-task-queue.service ~`\[(ERROR\|CRITICAL)\] \[paperless[._]mail` `` (checks run every 10 min; >12 in 6 h ≈ 2 h of failure) |
+| Mail fetch failing | IMAP fetch keeps erroring (app password revoked, 2-Step Verification turned off, account locked) | VictoriaLogs: `` _SYSTEMD_UNIT:paperless-task-queue.service ~`\[(ERROR\|CRITICAL)\] \[paperless[._]mail` `` (checks run every 10 min; >12 in 6 h ≈ 2 h of failure) |
 | alba-nix disk filling | root filesystem > 85% | `node_filesystem_avail_bytes{mountpoint="/"}` |
 | Nightly export failing | `paperless-export.service` failed | node_exporter systemd collector |
 
@@ -87,6 +112,8 @@ Notes for whoever builds it:
   `paperless.mail.tasks` loggers in the celery worker unit. The query
   above was checked for syntax against this VictoriaLogs, not yet
   against real paperless errors.
-- GMX free accounts can be restricted after ~6 months without a web
-  login, and it's unclear whether IMAP counts. Until the mail alert
-  exists, log into GMX's web UI every few months.
+- The mailbox is a dedicated Gmail account (GMX signup was too much
+  trouble). Google only deletes accounts after 2 years without use;
+  logging into the web UI once a year makes that a non-issue. Its app
+  password dies if 2-Step Verification is ever turned off or the
+  account password changes.

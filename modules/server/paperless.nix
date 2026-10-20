@@ -7,11 +7,11 @@
 # backups.nix's snapshot→restic→B2 job covers it consistently. vault only
 # gets a nightly human-readable export as a second copy (docs/adr/0009).
 #
-# Documents arrive by phone app, web upload and an IMAP mailbox (a GMX
-# account). Mail accounts, rules, users, tags and custom fields all live in
-# paperless's DB and are set up in its UI, not here — so the GMX app
-# password is in the DB (and the restic backup), not in sops. No consume
-# folder until there's a scanner aboard.
+# Documents arrive by phone app, web upload and an IMAP mailbox (a
+# dedicated Gmail account). Mail accounts, rules, users, tags and custom
+# fields all live in paperless's DB and are set up in its UI, not here —
+# so the Gmail app password is in the DB (and the restic backup), not in
+# sops. No consume folder until there's a scanner aboard.
 #
 # Binds localhost; caddy.nix publishes it as the tailnet name "paperless".
 # Restrict that node in the tailnet ACL to Jason's and his wife's devices,

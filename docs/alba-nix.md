@@ -258,12 +258,14 @@ Design: `modules/server/paperless.nix`, `docs/adr/0009`; the workflow is
    ticked, the starter document types and tags from `docs/paperless.md`,
    a date custom field `expires`, a document link custom field
    `replaced by`, and the Inbox and Expiring saved views.
-6. **Mail.** Create the GMX account, enable IMAP in its settings and
-   make an app password. In paperless, under Mail: an account
-   (`imap.gmx.com`, or `imap.gmx.net` for a .net/.de address; 993, SSL) and a rule: folder INBOX, attachments
-   only, PDF/image types, action "move to folder" `Processed` (create
-   it in GMX first), assign tag `inbox`.
-7. **Check.** Forward a PDF to the GMX address: within ~10 min it's in
+6. **Mail.** Create a dedicated Gmail account, turn on 2-Step
+   Verification and make an app password
+   (myaccount.google.com/apppasswords); IMAP is always on. In Gmail,
+   create a label `Processed`. In paperless, under Mail: an account
+   (`imap.gmail.com`, 993, SSL, the app password) and a rule: folder
+   INBOX, attachments only, PDF/image types, action "move to folder"
+   `Processed`, assign tag `inbox`.
+7. **Check.** Forward a PDF to the Gmail address: within ~10 min it's in
    the inbox, OCR'd. Upload a phone photo from the app. The next
    morning, `/volume1/paperless` on vault has `manifest.json` and
    `2026/<correspondent>/<title>.pdf`, and `systemctl status
