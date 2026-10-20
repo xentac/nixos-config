@@ -54,6 +54,11 @@ let
   # One series per filesystem; alba-nix's btrfs subvolumes share a device.
   fsUsed = ''max by (instance, device) (100 * (1 - node_filesystem_avail_bytes{fstype=~"ext4|xfs|btrfs"} / node_filesystem_size_bytes))'';
 
+  # Ping loss ratio per smokeping target over 10 min.
+  smokepingLoss =
+    selector:
+    "(1 - sum by (host) (rate(smokeping_response_duration_seconds_count{${selector}}[10m])) / sum by (host) (rate(smokeping_requests_total{${selector}}[10m])))";
+
   rules.groups = [
     {
       name = "meta";
@@ -102,6 +107,23 @@ let
           severity = "page";
           summary = "{{ $labels.device }} on {{ $labels.instance }} is {{ $value | humanize }}% full.";
         })
+        (rule {
+          alert = "ClockNotSynced";
+          expr = "node_timex_sync_status == 0";
+          for = "30m";
+          severity = "warn";
+          summary = "The clock on {{ $labels.instance }} is not NTP-synchronised.";
+        })
+        (rule {
+          # Both anycast references dark: the uplink, not one provider.
+          # Only delivered once the uplink is back, so it reads as a record
+          # of the outage; healthchecks.io reports it live.
+          alert = "UplinkDown";
+          expr = "min(${smokepingLoss ''host=~"cloudflare|google"''}) > 0.9";
+          for = "5m";
+          severity = "warn";
+          summary = "The boat lost the internet: {{ $value | humanizePercentage }} ping loss to both cloudflare and google.";
+        })
       ];
     }
     {
@@ -123,6 +145,142 @@ let
           for = "1h";
           severity = "warn";
           summary = "restic check of {{ $labels.instance }}'s repository failed.";
+        })
+      ];
+    }
+    {
+      # Signal K, i.e. the Victron GX. Temperatures arrive in kelvin.
+      name = "boat";
+      rules = [
+        (rule {
+          alert = "BatteryLow";
+          expr = "signalk_electrical_batteries_0_capacity_stateOfCharge < 0.5";
+          for = "15m";
+          severity = "warn";
+          summary = "House battery at {{ $value | humanizePercentage }}.";
+        })
+        (rule {
+          alert = "BatteryLow";
+          expr = "signalk_electrical_batteries_0_capacity_stateOfCharge < 0.3";
+          for = "10m";
+          severity = "page";
+          summary = "House battery at {{ $value | humanizePercentage }}.";
+        })
+        (rule {
+          # The lithium BMS is about to (or did) cut loads or charging.
+          alert = "BatteryBmsBlocking";
+          expr = ''{__name__=~"signalk_electrical_batteries_0_bms_allowTo(Charge|Discharge)"} == 0'';
+          for = "1m";
+          severity = "page";
+          summary = "The battery BMS no longer allows {{ $labels.signalk_path }}.";
+        })
+        (rule {
+          alert = "BatteryTemperature";
+          expr = "signalk_electrical_batteries_0_temperature - 273.15 < 5 or signalk_electrical_batteries_0_temperature - 273.15 > 45";
+          for = "10m";
+          severity = "warn";
+          summary = "House battery at {{ $value | humanize }} °C, outside 5-45 °C.";
+        })
+        (rule {
+          # Forwards the GX's own alarms (overload, ripple, ...). The
+          # starlinkOffshore plugin's notification is our metered input,
+          # not an alarm.
+          alert = "VictronAlarm";
+          expr = ''{__name__=~"signalk_notifications_.+_state", __name__!~"signalk_notifications_starlinkOffshore_.+", value_str=~"alarm|emergency"}'';
+          for = "1m";
+          severity = "page";
+          summary = "Victron alarm: {{ $labels.signalk_path }} is {{ $labels.value_str }}.";
+        })
+        (rule {
+          alert = "VictronAlarm";
+          expr = ''{__name__=~"signalk_notifications_.+_state", __name__!~"signalk_notifications_starlinkOffshore_.+", value_str=~"warn|alert"}'';
+          for = "5m";
+          severity = "warn";
+          summary = "Victron warning: {{ $labels.signalk_path }} is {{ $labels.value_str }}.";
+        })
+      ];
+    }
+    {
+      # Status codes are the Synology MIB's: 1 is normal everywhere.
+      name = "hardware";
+      rules = [
+        (rule {
+          alert = "VaultRaidDegraded";
+          expr = ''raidStatus{job="snmp-vault"} == 11 or raidStatus{job="snmp-vault"} == 12'';
+          severity = "page";
+          summary = "vault {{ $labels.raidName }} is {{ if eq $value 11.0 }}degraded{{ else }}crashed{{ end }}.";
+        })
+        (rule {
+          # diskStatus 4 = system partition failed, 5 = crashed;
+          # diskHealthStatus 3 = critical, 4 = failing.
+          alert = "VaultDiskUnhealthy";
+          expr = ''label_copy({__name__=~"diskStatus|diskHealthStatus", job="snmp-vault"}, "__name__", "metric") >= 4 or label_copy(diskHealthStatus{job="snmp-vault"}, "__name__", "metric") == 3'';
+          severity = "page";
+          summary = "vault disk {{ $labels.diskID }} reports {{ $labels.metric }} {{ $value }}.";
+        })
+        (rule {
+          alert = "VaultDiskUnhealthy";
+          expr = ''diskHealthStatus{job="snmp-vault"} == 2'';
+          severity = "warn";
+          summary = "vault disk {{ $labels.diskID }} health is at warning.";
+        })
+        (rule {
+          alert = "VaultHardwareFault";
+          expr = ''label_copy({__name__=~"systemStatus|powerStatus", job="snmp-vault"}, "__name__", "metric") == 2'';
+          severity = "page";
+          summary = "vault reports {{ $labels.metric }} failed.";
+        })
+        (rule {
+          alert = "VaultHardwareFault";
+          expr = ''label_copy({__name__=~"systemFanStatus|cpuFanStatus", job="snmp-vault"}, "__name__", "metric") == 2'';
+          severity = "warn";
+          summary = "vault reports {{ $labels.metric }} failed.";
+        })
+        (rule {
+          alert = "NvmeCriticalWarning";
+          expr = "nvme_critical_warning > 0";
+          severity = "page";
+          summary = "{{ $labels.device }} on {{ $labels.instance }} raised NVMe critical warning {{ $value }}.";
+        })
+        (rule {
+          alert = "SmartUnhealthy";
+          expr = "smartmon_device_smart_healthy == 0";
+          severity = "page";
+          summary = "{{ $labels.disk }} on {{ $labels.instance }} fails its SMART health check.";
+        })
+        (rule {
+          alert = "NvmeMediaErrors";
+          expr = "increase(nvme_media_errors_total[1d]) > 0";
+          severity = "warn";
+          summary = "{{ $labels.device }} on {{ $labels.instance }} logged {{ $value }} media errors today.";
+        })
+        (rule {
+          alert = "NvmeWearing";
+          expr = "nvme_percentage_used_ratio > 0.8";
+          severity = "warn";
+          summary = "{{ $labels.device }} on {{ $labels.instance }} has used {{ $value | humanizePercentage }} of its rated endurance.";
+        })
+        (rule {
+          alert = "PveGuestDown";
+          expr = "(pve_onboot_status == 1 and on (id) pve_up == 0) * on (id) group_left (name) pve_guest_info";
+          for = "15m";
+          severity = "warn";
+          summary = "proxmox guest {{ $labels.name }} ({{ $labels.id }}) starts on boot but is not running.";
+        })
+        (rule {
+          # proxmox's SMART/NVMe/apt scripts refresh every ~15 min; its
+          # restic.prom is daily and BackupStale already watches it.
+          alert = "TextfileCollectorBroken";
+          expr = ''time() - node_textfile_mtime_seconds{file!~".*/restic.prom"} > 3 * 3600'';
+          severity = "warn";
+          summary = "{{ $labels.file }} on {{ $labels.instance }} has not been rewritten for {{ $value | humanizeDuration }}.";
+        })
+        (rule {
+          alert = "TextfileCollectorBroken";
+          expr = "node_textfile_scrape_error == 1";
+          for = "15m";
+          severity = "warn";
+          summary = "node_exporter on {{ $labels.instance }} cannot parse a textfile collector file.";
         })
       ];
     }
@@ -239,6 +397,7 @@ in
             "alertname"
             "instance"
             "device"
+            "diskID"
           ];
         }
       ];

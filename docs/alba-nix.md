@@ -405,9 +405,10 @@ the container (`docs/adr/0005`).
 ### SystemdUnitFailed
 
 `systemctl status <unit>` and `journalctl -u <unit>` on that host (or
-the journald explorer dashboard). The alert clears once the unit is
-restarted successfully or reset (`systemctl reset-failed <unit>`). A
-failed `paperless-export` usually means vault was unreachable at 03:30.
+the journald explorer dashboard). The alert stays up for an hour after
+the last failure: a deploy or `reset-failed` clears a timer unit's
+failed state without fixing it, so only a clean hour counts. A failed
+`paperless-export` usually means vault was unreachable at 03:30.
 
 ### FilesystemFull
 
@@ -429,6 +430,105 @@ alba-nix's backup may be standing down on purpose.
 `restic check` reported a problem with the repository. Run `restic
 check` by hand with the host's credentials and read the error before
 doing anything else. Never `prune` a repository that fails its check.
+
+### ClockNotSynced
+
+The host hasn't been NTP-synchronised for 30 min. Usually the uplink
+was down for a while; check `timedatectl` and the uplink before blaming
+the host. A drifting clock breaks TLS, B2 and tailscale.
+
+### UplinkDown
+
+Both internet ping references (cloudflare, google) lost over 90% of
+pings for 5 min. This alert only gets through once the uplink is back,
+so it's a record of the outage; healthchecks.io reports it live. Check
+the smokeping dashboard: if `dishy` stayed fine, it was Starlink's side
+(obstruction, outage, being **metered**/out of data); if `dishy` or
+`router` dropped too, it was the boat's LAN or power.
+
+### BatteryLow
+
+House battery state of charge below 50% (`warn`) or 30% for 10 min
+(`page`). Cut loads, start charging (engine, generator, shore power),
+and check that solar is producing on the boat internals dashboard.
+
+### BatteryBmsBlocking
+
+The lithium BMS has disallowed charging or discharging. Discharge
+blocked means loads are about to lose power: battery very low, a cell
+under-voltage, or too cold. Charge blocked means a cell is over-voltage
+or the battery is too hot or cold to charge. Check the GX (VRM or the
+local console) for which cell and why.
+
+### BatteryTemperature
+
+The house battery is outside 5–45 °C for 10 min. Lithium mustn't charge
+below about 0 °C; heat shortens its life. Check ventilation of the
+battery compartment and charge currents.
+
+### VictronAlarm
+
+A notification raised by the Victron GX itself (inverter/charger
+overload, ripple, battery alarms, ...), forwarded through Signal K.
+`alarm`/`emergency` page, `warn`/`alert` don't. The GX console or VRM
+has the details and history.
+
+### VaultRaidDegraded
+
+A vault storage pool or volume is degraded (a disk dropped out) or
+crashed. Don't write to it more than necessary. Check Storage Manager in
+DSM, find the failed disk, and replace it; the pool rebuilds onto the
+new one. Make sure the latest restic backups are good first.
+
+### VaultDiskUnhealthy
+
+A vault disk's health is at warning (`warn`), or critical, failing,
+crashed or with a failed system partition (`page`). `diskID` is hex
+for the DSM name (`0x4469736B2031` = "Disk 1"). Check the disk's SMART
+details in DSM's Storage Manager and plan or do a replacement.
+
+### VaultHardwareFault
+
+vault reports a system or power fault (`page`), or a failed fan
+(`warn`). Look at DSM's Info Center and the front panel. A dead fan in
+a warm boat cabin will turn into overheating disks.
+
+### NvmeCriticalWarning
+
+proxmox's NVMe (the shared hot disk under every guest) set its critical
+warning flags: spare capacity low, over temperature, read-only mode, or
+reliability degraded. Check `nvme smart-log /dev/nvme0` on proxmox and
+the NVMe health dashboard; plan a replacement.
+
+### SmartUnhealthy
+
+A disk on proxmox fails its overall SMART health check. Same response
+as NvmeCriticalWarning.
+
+### NvmeMediaErrors
+
+The NVMe logged unrecoverable media errors in the last day. One-off
+errors can be survivable; a rising count means replace it.
+
+### NvmeWearing
+
+The NVMe has used over 80% of its rated write endurance. Not urgent,
+but buy a replacement before it reaches 100%.
+
+### PveGuestDown
+
+A proxmox guest set to start on boot has been stopped for 15 min.
+Start it from the Proxmox UI, or if it was retired on purpose, turn off
+"Start at boot" (or delete the guest) so it doesn't come back on the
+next host reboot.
+
+### TextfileCollectorBroken
+
+A proxmox textfile collector file (SMART, NVMe, apt) hasn't been
+rewritten for 3 h, or node_exporter can't parse one. Check the script's
+timer/cron on proxmox and its output in
+`/var/lib/prometheus/node-exporter/`. While broken, the NVMe and SMART
+alerts above see stale data.
 
 ### PaperlessInboxStale
 
