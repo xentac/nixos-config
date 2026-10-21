@@ -99,7 +99,12 @@ in
   systemd.services.paperless-metrics = {
     description = "Push paperless inbox/expiry/mail health to VictoriaMetrics";
     startAt = "*:0/15";
-    after = [ "paperless-web.service" ];
+    # The 03:30 run coincides with paperless-export, which stops paperless:
+    # wait for the export, and the curl retries cover the restart.
+    after = [
+      "paperless-web.service"
+      "paperless-export.service"
+    ];
     environment = {
       PAPERLESS = "http://${cfg.address}:${toString cfg.port}";
       VM = "http://${config.services.victoriametrics.listenAddress}";

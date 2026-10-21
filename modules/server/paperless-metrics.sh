@@ -12,9 +12,13 @@ if [[ $token == unset ]]; then
   exit 1
 fi
 
+# The token goes in through stdin (-H @-), never argv: journald records
+# the command line (_CMDLINE) of every process that logs, so a curl error
+# would ship it into VictoriaLogs. Retries ride out paperless restarting.
 get() {
   curl -fsS --max-time 60 \
-    -H "Authorization: Token $token" \
+    --retry 6 --retry-delay 10 --retry-connrefused \
+    -H @- <<<"Authorization: Token $token" \
     -H "Accept: application/json; version=9" \
     "$PAPERLESS/api/$1"
 }
