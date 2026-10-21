@@ -1,6 +1,6 @@
-# MCP servers for Claude Code. Each is a wrapper that reads its credential
-# from sops at exec time, so the MCP registration (`claude mcp add ...
-# -- <wrapper>`, kept in ~/.claude.json) never holds a secret.
+# MCP servers for Claude Code. One that needs a credential is a wrapper
+# that reads it from sops at exec time, so the MCP registration (`claude
+# mcp add ... -- <wrapper>`, kept in ~/.claude.json) never holds a secret.
 { config, pkgs, ... }:
 let
   # Grafana's official MCP server against alba-nix's Grafana (tailnet).
@@ -24,5 +24,11 @@ in
   # Claude Code.
   sops.secrets."alba-grafana/mcp_token".owner = "xentac";
 
-  environment.systemPackages = [ mcp-grafana-alba ];
+  environment.systemPackages = [
+    mcp-grafana-alba
+    # nixpkgs / NixOS / home-manager package and option lookup. Public
+    # data, no credential, so no wrapper: registered as
+    # `claude mcp add -s user nixos -- mcp-nixos`.
+    pkgs.mcp-nixos
+  ];
 }
