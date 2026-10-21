@@ -110,7 +110,7 @@ For this repo's machines and services: #19 (with alba-mcp specified in
 #20). For the other repos, so each can get its own issue:
 
 **Across all code repos**
-- **Context7.** Version-accurate library docs for the fast-moving
+- **Context7** (`context7-mcp` in nixpkgs; trial tracked in #19). Version-accurate library docs for the fast-moving
   dependencies: axum, sqlx, React 19, Vite 7, vitest 4, Next.js. The free
   tier is a monthly request cap (reportedly 1,000 since Jan 2026), and
   each lookup takes two calls. Queries (library names and questions, not
@@ -123,9 +123,9 @@ For this repo's machines and services: #19 (with alba-mcp specified in
   client-side rate limiting, and responses trimmed before they reach
   context. Both publish OpenAPI specs (snapshotted in `xentac/skills`), so
   a thin generated server is plausible. API data only: the skills'
-  never-drive-torn.com rule still applies.
+  never-drive-torn.com rule still applies. xentac/skills#1.
 
-**torn_war_stuff_enhanced_server** (Rust/axum, valkey, k3s)
+**torn_war_stuff_enhanced_server** (Rust/axum, valkey, k3s): xentac/torn_war_stuff_enhanced_server#25
 - **kubernetes-mcp-server** (`containers/kubernetes-mcp-server`,
   read-only). Pods, events and logs on the cluster. Sealed secrets stay
   sealed.
@@ -138,7 +138,7 @@ For this repo's machines and services: #19 (with alba-mcp specified in
 - **Hetzner Cloud MCP**, once the multinode cluster lands: servers,
   firewalls, volumes.
 
-**torn_war_monitor** (Rust/sqlx, Postgres + TimescaleDB, React/Vite)
+**torn_war_monitor** (Rust/sqlx, Postgres + TimescaleDB, React/Vite): xentac/torn_war_monitor#73
 - **postgres-mcp** (`crystaldba/postgres-mcp`, restricted mode, dev DB).
   Query plans, index advice, hypertable inspection.
 - Shares the kubernetes and Grafana servers above once it moves to k3s.
@@ -156,11 +156,12 @@ For this repo's machines and services: #19 (with alba-mcp specified in
 - **beancount:** Plaid (free Trial: 10 production Items with Transactions
   and Statements; SimpleFIN Bridge, ~$15/yr, is the transactions-only
   fallback) belongs in the ingest pipeline as an importer, not as an MCP.
-  It means revisiting that repo's ADR 0004, since a stored access token is
+  xentac/beancount#65. It means revisiting that repo's ADR 0004, since a stored access token is
   the credential it declined. Querying the ledger is `bean-query` plus a
   skill.
 - **Obsidian:** Readwise Reader stays on the readwise-official plugin. A
-  Google Calendar connector wouldn't get used.
+  Google Calendar connector wouldn't get used. The broader question is
+  xentac/obsidian#1.
 - **Paperless** (#19): it waits on a habit of filing receipts there.
 
 **droplet1-compose**
