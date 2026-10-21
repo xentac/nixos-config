@@ -60,8 +60,10 @@
   # Lid: suspend-then-hibernate on battery, ignore when docked (external
   # monitor at the desk). With no HibernateDelaySec set, systemd estimates the
   # discharge rate during suspend and converts to hibernate before the battery
-  # runs out (AMD is s2idle-only, so closed-lid drain is real).
+  # runs out (AMD is s2idle-only, so closed-lid drain is real). A short
+  # power-button press does the same instead of logind's default poweroff.
   services.logind.settings.Login = {
+    HandlePowerKey = "suspend-then-hibernate";
     HandleLidSwitch = "suspend-then-hibernate";
     HandleLidSwitchDocked = "ignore";
   };
