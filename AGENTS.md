@@ -3,7 +3,7 @@
 NixOS flake for Jason's machines: `hosts/donatello` (laptop) and
 `hosts/alba-nix` (boat-services VM). `CONTEXT.md` is the glossary,
 `docs/adr/` holds the design decisions, `docs/alba-nix.md` the server
-runbook. Deploy: `just switch` (donatello, local) and `just deploy alba-nix`
+runbook, `docs/mcp.md` the MCP servers Claude Code uses. Deploy: `just switch` (donatello, local) and `just deploy alba-nix`
 (deploy-rs over SSH). Never SSH into a remote host unless asked.
 
 ## Agent skills
